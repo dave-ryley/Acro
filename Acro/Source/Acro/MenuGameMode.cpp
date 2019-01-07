@@ -1,12 +1,14 @@
 // Copyright © 2018-2019 David Ryley and David Ryan. All rights reserved.
 
 #include "MenuGameMode.h"
+#include "AcroGameInstance.h"
 #include "Engine/GameEngine.h"
+#include "Runtime/Core/Public/Misc/FileHelper.h"
 #include "Runtime/Core/Public/HAL/FileManagerGeneric.h"
 #include "Runtime/Core/Public/HAL/PlatformFilemanager.h"
 #include "Runtime/Core/Public/GenericPlatform/GenericPlatformFile.h"
-#include "AcroGameInstance.h"
-#include "LevelData.h"
+#include "Runtime/Core/Public/Serialization/BufferArchive.h"
+#include "Runtime/Core/Public/Serialization/MemoryReader.h"
 
 #define printf(text, ...) if(GEngine) GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Green, FString::Printf(TEXT(text), ##__VA_ARGS__))
 
@@ -56,8 +58,11 @@ bool AMenuGameMode::LoadGames()
             printf("%d save files exist.", SaveFiles.Num());
             for (int i = 0; i < SaveFiles.Num(); i++)
             {
-                if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, SaveFiles[i]);
-                // Validate each file and load their resources. PNG, etc...
+                FString FullDirectoryPath = SaveDirectoryAbsolutePath + "/" + SaveFiles[i];
+                FLevelData LevelData;
+                LoadLevelData(*FullDirectoryPath, &LevelData);
+                LevelLoaded.Broadcast(LevelData);
+                //if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, LevelData.LevelName.ToString());
             }
         }
     }
@@ -132,12 +137,61 @@ bool AMenuGameMode::CreateNewGame(const FString& GameName)
 
     // Create New LevelData and Save
 
-    ULevelData* CurrentLevelData = new ULevelData();
-    CurrentLevelData->SetLevelName(*GameName);
-    CurrentLevelData->Save(*FullDirectoryPath);
+    FLevelData CurrentLevelData;
+    CurrentLevelData.LevelName = FName(*GameName);
+    SaveLevelData(*FullDirectoryPath, &CurrentLevelData);
 
     UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
     GameInstance->SetCurrentLevelData(CurrentLevelData);
 
     return true;
+}
+
+bool AMenuGameMode::SaveLevelData(const FString & filePath, FLevelData* LevelData)
+{
+    FBufferArchive ByteArrayBuffer;
+    SaveLoadLevelData(ByteArrayBuffer, LevelData);
+    if (ByteArrayBuffer.Num() == 0)
+    {
+        return false;
+    }
+
+    FString fullFilePath = filePath + FString("/levelData.acrolevelsave");
+
+    bool success = FFileHelper::SaveArrayToFile(ByteArrayBuffer, *fullFilePath);
+
+    ByteArrayBuffer.FlushCache();
+    ByteArrayBuffer.Empty();
+
+    return success;
+}
+
+bool AMenuGameMode::LoadLevelData(const FString & filePath, FLevelData* LevelData)
+{
+    TArray<uint8> BinaryArray;
+    FString fullFilePath = filePath + FString("/levelData.acrolevelsave");
+    if (!FFileHelper::LoadFileToArray(BinaryArray, *fullFilePath))
+    {
+        return false;
+    }
+    if (BinaryArray.Num() <= 0)
+    {
+        return false;
+    }
+    FMemoryReader FromBinary = FMemoryReader(BinaryArray, true);
+    FromBinary.Seek(0);
+    SaveLoadLevelData(FromBinary, LevelData);
+
+    FromBinary.FlushCache();
+
+    BinaryArray.Empty();
+    FromBinary.Close();
+
+    return true;
+}
+
+void AMenuGameMode::SaveLoadLevelData(FArchive& Ar, FLevelData* LevelData)
+{
+    Ar << LevelData->LevelName;
+    Ar << LevelData->LevelSegments;
 }
