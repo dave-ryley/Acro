@@ -16,4 +16,10 @@ class ACRO_API AMenuGameMode : public AGameModeBase
 
 public:
     AMenuGameMode();
+
+    UFUNCTION(BlueprintCallable, Category = "SaveLoad")
+    bool LoadGames();
+
+    UFUNCTION(BlueprintCallable, Category = "SaveLoad")
+    bool CreateNewGame(const FString& GameName);
 };
