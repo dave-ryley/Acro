@@ -16,7 +16,6 @@ AAcroGameMode::AAcroGameMode()
     static ConstructorHelpers::FClassFinder<AAcroCharacter> PlayerPawnBPClass(TEXT("/Game/SideScrollerCPP/Blueprints/SideScrollerCharacter"));
     if (PlayerPawnBPClass.Succeeded())
     {
-        //PlayerCharacterClass = AAcroCharacter::StaticClass();
         PlayerCharacterClass = PlayerPawnBPClass.Class;
         DefaultPawnClass = PlayerPawnBPClass.Class;
     }
@@ -32,8 +31,8 @@ void AAcroGameMode::InitGame(const FString & MapName, const FString & Options, F
 
     LevelSegments.Empty(); // TODO: Make sure this is done on Game ending.
     
-    const FLevelData * CurrentLevelData = GameInstance->GetCurrentLevelData();
-    FString DirectoryPath = FString(TEXT(SAVE_DIRECTORY_PATH)) + "/" + CurrentLevelData->UUID + "/";
+    FLevelData * CurrentLevelData = GameInstance->GetCurrentLevelData();
+    FString DirectoryPath = FString::Printf(TEXT("%s/%s/"), *SAVE_DIRECTORY_PATH, *(CurrentLevelData->UUID));
     IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
     FString SaveDirectoryAbsolutePath = PlatformFile.ConvertToAbsolutePathForExternalAppForWrite(*DirectoryPath);
     if (!PlatformFile.DirectoryExists(*SaveDirectoryAbsolutePath))
@@ -42,9 +41,9 @@ void AAcroGameMode::InitGame(const FString & MapName, const FString & Options, F
         return;
     }
 
-    TArray<uint8> BinaryArray;
     for (int i = 0; i < CurrentLevelData->LevelSegments; i++)
     {
+        TArray<uint8> BinaryArray;
         FString FullPath = SaveDirectoryAbsolutePath + "seg_" + FString::FromInt(i) + ".ass";
         if (!FFileHelper::LoadFileToArray(BinaryArray, *FullPath))
         {
@@ -71,7 +70,7 @@ bool AAcroGameMode::SaveLevelData()
 {
     UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
     FLevelData * CurrentLevelData = GameInstance->GetCurrentLevelData();
-    FString DirectoryPath = FString(TEXT(SAVE_DIRECTORY_PATH));
+    FString DirectoryPath = SAVE_DIRECTORY_PATH;
     IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
     FString DirectoryPostfix = FString::Printf(TEXT("/%s/"), *(CurrentLevelData->UUID));
     FString SaveDirectoryAbsolutePath = PlatformFile.ConvertToAbsolutePathForExternalAppForWrite(*DirectoryPath);
@@ -84,9 +83,9 @@ bool AAcroGameMode::SaveLevelData()
     }
     printf("Saving %d Level Segments", LevelSegments.Num());
 
-    FBufferArchive ByteArrayBuffer;
     for (int i = 0; i < LevelSegments.Num(); i++)
     {
+        FBufferArchive ByteArrayBuffer;
         LevelSegments[i].SaveLoadSegment(ByteArrayBuffer);
         if (ByteArrayBuffer.Num() == 0)
         {
@@ -112,7 +111,7 @@ bool AAcroGameMode::SaveLevelData()
         return false;
     }
 
-    FString fullFilePath = SaveDirectoryAbsolutePath + FString("levelData.acrolevelsave");
+    FString fullFilePath = SaveDirectoryAbsolutePath + FString("levelData.als");
 
     // TODO: Warn if SaveArrayToFile returns false.
     FFileHelper::SaveArrayToFile(LevelDataBuffer, *fullFilePath);
@@ -179,7 +178,7 @@ void AAcroGameMode::EnterCreativeMode()
     if (PC != nullptr)
     {
         AAcroPlayerController* PlayerController = Cast<AAcroPlayerController>(PC);
-        PlayerController->EnterCreativeMode(CurrentLevelSegment);
+        PlayerController->EnterCreativeMode(CurrentLevelSegment, Position);
     }
 
 }
@@ -200,6 +199,9 @@ void AAcroGameMode::EnterPlayMode()
     float rotationAmount = (LevelSegments.Num() * LEVEL_WIDTH) / LEVEL_CIRCUMFERENCE * 360.f;
     Position = Position.RotateAngleAxis(rotationAmount, FVector::UpVector);
 
+    // TODO: Get Previous Save Position for Player
+    FVector PlayerPosition = FVector(LEVEL_RADIUS, 0.0, 50.0);
+
     EndCheckpointTrigger->SetActorLocation(Position);
 
     // Get PlayerController to possess character
@@ -207,7 +209,7 @@ void AAcroGameMode::EnterPlayMode()
     if (PC != nullptr)
     {
         AAcroPlayerController* PlayerController = Cast<AAcroPlayerController>(PC);
-        PlayerController->EnterPlayMode(Position);
+        PlayerController->EnterPlayMode(PlayerPosition);
     }
 }
 

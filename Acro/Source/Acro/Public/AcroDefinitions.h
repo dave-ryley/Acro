@@ -11,6 +11,6 @@
 #define LEVEL_HEIGHT 500.f
 #define LEVEL_WIDTH LEVEL_RADIUS / 8.f
 
-#define SAVE_DIRECTORY_PATH "SaveGames"
+const FString SAVE_DIRECTORY_PATH = FString("SaveGames");
 
 #define VECTOR_LENGTH_THRESHOLD 50

@@ -18,7 +18,7 @@ AMenuGameMode::AMenuGameMode()
 
 bool AMenuGameMode::LoadGames()
 {
-    FString SaveDirectoryPath = FString(TEXT(SAVE_DIRECTORY_PATH));
+    FString SaveDirectoryPath = SAVE_DIRECTORY_PATH;
     IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
     FString SaveDirectoryAbsolutePath = PlatformFile.ConvertToAbsolutePathForExternalAppForWrite(*SaveDirectoryPath);
 
@@ -48,9 +48,9 @@ bool AMenuGameMode::LoadGames()
             for (int i = 0; i < SaveFiles.Num(); i++)
             {
                 FString FullDirectoryPath = SaveDirectoryAbsolutePath + "/" + SaveFiles[i];
-                FLevelData LevelData;
-                LoadLevelData(*FullDirectoryPath, &LevelData);
-                LevelLoaded.Broadcast(LevelData);
+                Levels.Add(FLevelData());
+                LoadLevelData(*FullDirectoryPath, &(Levels.Last()));
+                LevelLoaded.Broadcast(Levels.Last());
             }
         }
     }
@@ -59,7 +59,7 @@ bool AMenuGameMode::LoadGames()
 
 bool AMenuGameMode::CreateNewGame(const FString& GameName)
 {
-    FString SaveDirectoryPath = FString(TEXT(SAVE_DIRECTORY_PATH));
+    FString SaveDirectoryPath = SAVE_DIRECTORY_PATH;
     IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
     FString SaveDirectoryAbsolutePath = PlatformFile.ConvertToAbsolutePathForExternalAppForWrite(*SaveDirectoryPath);
 
@@ -113,13 +113,13 @@ bool AMenuGameMode::CreateNewGame(const FString& GameName)
 
     // Create New LevelData and Save
 
-    FLevelData CurrentLevelData;
-    CurrentLevelData.LevelName = FName(*GameName);
-    CurrentLevelData.UUID = UUID;
-    SaveLevelData(*FullDirectoryPath, &CurrentLevelData);
+    Levels.Add(FLevelData());
+    Levels.Last().LevelName = FName(*GameName);
+    Levels.Last().UUID = UUID;
+    SaveLevelData(*FullDirectoryPath, &(Levels.Last()));
 
     UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
-    GameInstance->SetCurrentLevelData(CurrentLevelData);
+    GameInstance->SetCurrentLevelData(&(Levels.Last()));
 
     return true;
 }
@@ -127,7 +127,7 @@ bool AMenuGameMode::CreateNewGame(const FString& GameName)
 bool AMenuGameMode::LoadLevel(FLevelData LevelData)
 {
     UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
-    GameInstance->SetCurrentLevelData(LevelData);
+    GameInstance->SetCurrentLevelData(&LevelData);
     return true;
 }
 
@@ -140,7 +140,7 @@ bool AMenuGameMode::SaveLevelData(const FString & filePath, FLevelData* LevelDat
         return false;
     }
 
-    FString fullFilePath = filePath + FString("/levelData.acrolevelsave");
+    FString fullFilePath = FString::Printf(TEXT("%s/levelData.als"), *filePath);
 
     bool success = FFileHelper::SaveArrayToFile(ByteArrayBuffer, *fullFilePath);
 
@@ -153,7 +153,7 @@ bool AMenuGameMode::SaveLevelData(const FString & filePath, FLevelData* LevelDat
 bool AMenuGameMode::LoadLevelData(const FString & filePath, FLevelData* LevelData)
 {
     TArray<uint8> BinaryArray;
-    FString fullFilePath = filePath + FString("/levelData.acrolevelsave");
+    FString fullFilePath = FString::Printf(TEXT("%s/levelData.als"), *filePath);
     if (!FFileHelper::LoadFileToArray(BinaryArray, *fullFilePath))
     {
         return false;
