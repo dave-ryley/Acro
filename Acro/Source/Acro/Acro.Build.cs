@@ -9,6 +9,10 @@ public class Acro : ModuleRules
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
-        PublicDependencyModuleNames.AddRange(new string[] { "ShaderCore", "RenderCore", "RHI", "RuntimeMeshComponent" });
+        PublicDependencyModuleNames.AddRange(new string[] { "ShaderCore", "RenderCore", "RHI", "UMG", "RuntimeMeshComponent" });
+        //PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+        PublicDependencyModuleNames.AddRange(new string[] { "OnlineSubsystem", "OnlineSubsystemUtils" });
+
+        DynamicallyLoadedModuleNames.Add("OnlineSubsystemSteam");
     }
 }

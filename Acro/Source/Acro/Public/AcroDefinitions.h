@@ -8,9 +8,9 @@
 #define LEVEL_RADIUS 2000.f
 #define LEVEL_CIRCUMFERENCE LEVEL_RADIUS * 2 * PI
 
+const FString SAVE_DIRECTORY_PATH = FString("SaveGames");
+
 #define LEVEL_HEIGHT 500.f
 #define LEVEL_WIDTH LEVEL_RADIUS / 8.f
-
-const FString SAVE_DIRECTORY_PATH = FString("SaveGames");
 
 #define VECTOR_LENGTH_THRESHOLD 50
