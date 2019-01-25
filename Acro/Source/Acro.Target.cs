@@ -8,6 +8,7 @@ public class AcroTarget : TargetRules
 	public AcroTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Game;
+        bUsesSteam = true;
 		ExtraModuleNames.Add("Acro");
 	}
 }

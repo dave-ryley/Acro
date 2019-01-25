@@ -14,41 +14,38 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnValidateLevelDelegate);
 UCLASS(minimalapi)
 class AAcroGameMode : public AGameModeBase
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    AAcroGameMode();
+	AAcroGameMode();
 
-    // Loads the Level Segments from disk
-    virtual void InitGame( const FString & MapName, const FString & Options, FString & ErrorMessage) override;
+	// Loads the Level Segments from disk
+	virtual void InitGame( const FString & MapName, const FString & Options, FString & ErrorMessage) override;
 
-    UFUNCTION(BlueprintCallable, Category = "SaveLoad")
-    bool SaveLevelData();
+	UFUNCTION(BlueprintCallable, Category = "SaveLoad")
+	bool SaveLevelData();
 
-    virtual void StartPlay() override;
+	virtual void StartPlay() override;
 
-    void ValidateLevelSegment();
+	void ValidateLevelSegment();
 
-    UFUNCTION(BlueprintCallable, Category = "Game States")
-    void EnterCreativeMode();
-    UFUNCTION(BlueprintCallable, Category = "Game States")
-    void EnterPlayMode();
-    UFUNCTION(BlueprintCallable, Category = "Game States")
-    void EnterTestMode();
+	UFUNCTION(BlueprintCallable, Category = "Game States")
+	void EnterCreativeMode();
+	UFUNCTION(BlueprintCallable, Category = "Game States")
+	void EnterPlayMode();
+	UFUNCTION(BlueprintCallable, Category = "Game States")
+	void EnterTestMode();
 
-    UPROPERTY(BlueprintAssignable, Category = "Game States")
-    FOnValidateLevelDelegate LevelSegmentValidated;
+	UPROPERTY(BlueprintAssignable, Category = "Game States")
+	FOnValidateLevelDelegate LevelSegmentValidated;
 
-    TArray<FLevelSegment> LevelSegments;
-    FLevelSegment* CurrentLevelSegment = nullptr;
+	TArray<FLevelSegment> LevelSegments;
+	FLevelSegment* CurrentLevelSegment = nullptr;
 
-    TSubclassOf<AAcroCharacter> PlayerCharacterClass;
+	TSubclassOf<AAcroCharacter> PlayerCharacterClass;
 
 private:
-    AAcroCheckpointTrigger* EndCheckpointTrigger = nullptr;
-    AAcroCheckpointTrigger* ValidationCheckpointTrigger = nullptr;
-    bool bLevelInProgress = false;
+	AAcroCheckpointTrigger* EndCheckpointTrigger = nullptr;
+	AAcroCheckpointTrigger* ValidationCheckpointTrigger = nullptr;
+	bool bLevelInProgress = false;
 };
-
-
-
