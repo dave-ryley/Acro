@@ -8,91 +8,185 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/GameEngine.h"
 #include "../Public/AcroDefinitions.h"
+#include "AcroPlayerController.h"
+#include "UnrealNetwork.h"
 
 AAcroCharacter::AAcroCharacter()
 {
-    // Set size for collision capsule
-    GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
+	// Set size for collision capsule
+	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
-    // Don't rotate when the controller rotates.
-    bUseControllerRotationPitch = false;
-    bUseControllerRotationYaw = false;
-    bUseControllerRotationRoll = false;
+	// Don't rotate when the controller rotates.
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationRoll = false;
 
-    // Create a camera boom attached to the root (capsule)
-    CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-    CameraBoom->SetupAttachment(RootComponent);
-    CameraBoom->bAbsoluteRotation = true; // Rotation of the character should not affect rotation of boom
-    CameraBoom->bDoCollisionTest = false;
-    CameraBoom->TargetArmLength = 1000.f;
-    CameraBoom->SocketOffset = FVector(0.f,0.f,75.f);
-    CameraBoom->RelativeRotation = FRotator(0.f,180.f,0.f);
+	// Create a camera boom attached to the root (capsule)
+	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+	CameraBoom->SetupAttachment(RootComponent);
+	CameraBoom->bAbsoluteRotation = true; // Rotation of the character should not affect rotation of boom
+	CameraBoom->bDoCollisionTest = false;
+	CameraBoom->TargetArmLength = 1000.f;
+	CameraBoom->SocketOffset = FVector(0.f,0.f,75.f);
+	CameraBoom->RelativeRotation = FRotator(0.f,180.f,0.f);
 
-    // Create a camera and attach to boom
-    SideViewCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("SideViewCamera"));
-    SideViewCameraComponent->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
-    SideViewCameraComponent->bUsePawnControlRotation = false; // We don't want the controller rotating the camera
+	// Create a camera and attach to boom
+	SideViewCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("SideViewCamera"));
+	SideViewCameraComponent->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	SideViewCameraComponent->bUsePawnControlRotation = false; // We don't want the controller rotating the camera
 
-    // Configure character movement
-    UCharacterMovementComponent* characterMovement = GetCharacterMovement();
-    characterMovement->bOrientRotationToMovement = true; // Face in the direction we are moving..
-    characterMovement->RotationRate = FRotator(0.0f, 720.0f, 0.0f); // ...at this rotation rate
-    characterMovement->GravityScale = 2.f;
-    characterMovement->AirControl = 0.80f;
-    characterMovement->JumpZVelocity = 1000.f;
-    characterMovement->GroundFriction = 3.f;
-    characterMovement->MaxWalkSpeed = 600.f;
-    characterMovement->MaxFlySpeed = 600.f;
+	// Configure character movement
+	UCharacterMovementComponent* characterMovement = GetCharacterMovement();
+	characterMovement->bOrientRotationToMovement = true; // Face in the direction we are moving..
+	characterMovement->RotationRate = FRotator(0.0f, 720.0f, 0.0f); // ...at this rotation rate
+	characterMovement->GravityScale = 2.f;
+	characterMovement->AirControl = 0.80f;
+	characterMovement->JumpZVelocity = 1000.f;
+	characterMovement->GroundFriction = 3.f;
+	characterMovement->MaxWalkSpeed = 600.f;
+	characterMovement->MaxFlySpeed = 600.f;
 
-    // Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
-    // are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
+	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
 
 }
 
 void AAcroCharacter::Tick(float DeltaSeconds)
 {
-    Super::Tick(DeltaSeconds);
-    FVector curLocation = GetActorLocation();
-    FVector distanceCheck = curLocation - FVector(0.f, 0.f, curLocation.Z);
-    curLocation = (curLocation / distanceCheck.Size()) * LEVEL_RADIUS;
-    SetActorLocation(curLocation);
-    CameraBoom->RelativeRotation = FRotator(0.f, FMath::RadiansToDegrees(atan2f(curLocation.Y, curLocation.X)) + 180.f, 0.f);
+	Super::Tick(DeltaSeconds);
+	FVector curLocation = GetActorLocation();
+	FVector distanceCheck = curLocation - FVector(0.f, 0.f, curLocation.Z);
+	curLocation = (curLocation / distanceCheck.Size()) * LEVEL_RADIUS;
+	SetActorLocation(curLocation);
+	CameraBoom->RelativeRotation = FRotator(0.f, FMath::RadiansToDegrees(atan2f(curLocation.Y, curLocation.X)) + 180.f, 0.f);
+	if (bIsDrawing)
+	{
+		DrawingMesh();
+	}
 }
 
-//////////////////////////////////////////////////////////////////////////
-// Input
+void AAcroCharacter::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	// Replicate to everyone
+	DOREPLIFETIME(AAcroCharacter, AcroMesh);
+}
 
 void AAcroCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 {
-    // set up gameplay key bindings
-    PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
-    PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
-    PlayerInputComponent->BindAxis("Move2DHorizontal", this, &AAcroCharacter::Move2DHorizontal);
+	// set up gameplay key bindings
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
+	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+	PlayerInputComponent->BindAxis("Move2DHorizontal", this, &AAcroCharacter::Move2DHorizontal);
 
-    PlayerInputComponent->BindTouch(IE_Pressed, this, &AAcroCharacter::TouchStarted);
-    PlayerInputComponent->BindTouch(IE_Released, this, &AAcroCharacter::TouchStopped);
+	PlayerInputComponent->BindAction("Draw", IE_Pressed, this, &AAcroCharacter::DrawStarted);
+	PlayerInputComponent->BindAction("Draw", IE_Released, this, &AAcroCharacter::DrawEnded);
+
+	PlayerInputComponent->BindTouch(IE_Pressed, this, &AAcroCharacter::TouchStarted);
+	PlayerInputComponent->BindTouch(IE_Released, this, &AAcroCharacter::TouchStopped);
 }
 
 void AAcroCharacter::Move2DHorizontal(float Value)
 {
-    // add movement in that direction
-    if (Value != 0.0f)
-    {
-        FVector curLocation = GetActorLocation();
-        float rotationAmount = -Value / LEVEL_CIRCUMFERENCE * 360.f;
-        FVector endLocation = curLocation.RotateAngleAxis(rotationAmount, FVector::UpVector);
-        AddMovementInput(endLocation - curLocation, 1.f);
-    }
+	if (Value != 0.0f)
+	{
+		FVector curLocation = GetActorLocation();
+		float rotationAmount = -Value / LEVEL_CIRCUMFERENCE * 360.f;
+		FVector endLocation = curLocation.RotateAngleAxis(rotationAmount, FVector::UpVector);
+		AddMovementInput(endLocation - curLocation, 1.f);
+	}
 }
 
 void AAcroCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
 {
-    // jump on any touch
-    Jump();
+	Jump();
 }
 
 void AAcroCharacter::TouchStopped(const ETouchIndex::Type FingerIndex, const FVector Location)
 {
-    StopJumping();
+	StopJumping();
 }
 
+FORCEINLINE FVector CollisionVector(FVector worldLocation, FVector worldDirection)
+{
+	worldDirection *= 100000.f;
+	worldDirection += worldLocation;
+	FVector2D worldDirection2D = FVector2D(worldDirection.X, worldDirection.Y);
+
+	float a = powf(worldDirection.X - worldLocation.X, 2) + powf(worldDirection.Y - worldLocation.Y, 2);
+	float b = 2 * (worldDirection.X - worldLocation.X)*worldLocation.X + 2 * (worldDirection.Y - worldLocation.Y)*worldLocation.Y;
+	float c = powf(worldLocation.X, 2) + powf(worldLocation.Y, 2) - powf(LEVEL_RADIUS, 2);
+	float discriminant = b * b - 4 * a*c;
+	if (discriminant > 0)
+	{
+		float scalar1 = (-b + sqrtf(discriminant)) / (2 * a);
+		float scalar2 = (-b - sqrtf(discriminant)) / (2 * a);
+		scalar1 = (scalar1 > 0 && scalar1 < 1) ? scalar1 : scalar2;
+		scalar2 = (scalar2 > 0 && scalar2 < 1) ? scalar2 : scalar1;
+		float scalar = (scalar1 < scalar2) ? scalar1 : scalar2;
+		return ((worldDirection - worldLocation) * scalar) + worldLocation;
+	}
+	else
+	{
+		return FVector::ZeroVector;
+	}
+}
+
+
+void AAcroCharacter::DrawStarted()
+{
+	bIsDrawing = true;
+	float MouseX;
+	float MouseY;
+	AAcroPlayerController* PlayerController = Cast<AAcroPlayerController>(GetController());
+	if (PlayerController != nullptr)
+	{
+		PlayerController->GetMousePosition(MouseX, MouseY);
+		FVector WorldLocation = FVector::ZeroVector;
+		FVector WorldDirection = FVector::ZeroVector;
+		PlayerController->DeprojectScreenPositionToWorld(MouseX, MouseY, WorldLocation, WorldDirection);
+		FVector collisionVector = CollisionVector(WorldLocation, WorldDirection);
+		if (collisionVector != FVector::ZeroVector)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("BeginGeneratingMesh"));
+			UWorld* World = GetWorld();
+			if (HasAuthority())
+			{
+				AcroMesh->BeginGeneratingMesh(World, collisionVector);
+			}
+		}
+	}
+}
+
+void AAcroCharacter::DrawingMesh()
+{
+	float MouseX;
+	float MouseY;
+	AAcroPlayerController* PlayerController = Cast<AAcroPlayerController>(GetController());
+	if (PlayerController != nullptr)
+	{
+		PlayerController->GetMousePosition(MouseX, MouseY);
+		FVector WorldLocation = FVector::ZeroVector;
+		FVector WorldDirection = FVector::ZeroVector;
+		PlayerController->DeprojectScreenPositionToWorld(MouseX, MouseY, WorldLocation, WorldDirection);
+		FVector collisionVector = CollisionVector(WorldLocation, WorldDirection);
+		if (collisionVector != FVector::ZeroVector)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("ContinueGeneratingMesh"));
+			if (HasAuthority())
+			{
+				AcroMesh->ContinueGeneratingMesh(collisionVector);
+			}
+		}
+	}
+}
+
+void AAcroCharacter::DrawEnded()
+{
+	bIsDrawing = false;
+	if (HasAuthority())
+	{
+		AcroMesh->EndGeneratingMesh();
+	}
+}
