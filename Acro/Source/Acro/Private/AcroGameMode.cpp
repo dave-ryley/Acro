@@ -10,6 +10,7 @@
 #include "../Public/AcroPlayerState.h"
 #include "../Public/AcroPlayerController.h"
 #include "../Public/AcroDefinitions.h"
+#include "AcroGorbClient.h"
 
 AAcroGameMode::AAcroGameMode()
 {
@@ -25,6 +26,10 @@ AAcroGameMode::AAcroGameMode()
 
 void AAcroGameMode::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
 {
+	AcroGorbClient client;
+
+	printf("Gorb: Connection %s", client.IsConnected() ? *FString("Successful") : *FString("Failed"));
+
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
