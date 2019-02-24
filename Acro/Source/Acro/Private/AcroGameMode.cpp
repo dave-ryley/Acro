@@ -13,13 +13,14 @@
 
 AAcroGameMode::AAcroGameMode()
 {
-	static ConstructorHelpers::FClassFinder<AAcroCharacter> PlayerPawnBPClass(TEXT("/Game/SideScrollerCPP/Blueprints/SideScrollerCharacter"));
+	static ConstructorHelpers::FClassFinder<AAcroCharacter> PlayerPawnBPClass(TEXT("/Game/Blueprints/SideScrollerCharacter.SideScrollerCharacter_C"));
 	if (PlayerPawnBPClass.Succeeded())
 	{
 		PlayerCharacterClass = PlayerPawnBPClass.Class;
 		DefaultPawnClass = PlayerPawnBPClass.Class;
 	}
 	PlayerStateClass = AAcroPlayerState::StaticClass();
+	GameStateClass = AGameStateBase::StaticClass();
 	PlayerControllerClass = AAcroPlayerController::StaticClass();
 }
 
@@ -30,7 +31,7 @@ void AAcroGameMode::InitGame(const FString & MapName, const FString & Options, F
 	UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
 
 	LevelSegments.Empty(); // TODO: Make sure this is done on Game ending.
-	
+
 	FLevelData * CurrentLevelData = GameInstance->GetCurrentLevelData();
 	FString DirectoryPath = FString::Printf(TEXT("%s/%s/"), *SAVE_DIRECTORY_PATH, *(CurrentLevelData->UUID));
 	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();

@@ -1,0 +1,7 @@
+{
+	"files.associations": {
+		"*.ush": "hlsl",
+		"*.usf": "hlsl",
+		"cmath": "cpp"
+	}
+}

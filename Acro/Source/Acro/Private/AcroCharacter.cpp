@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AcroCharacter.h"
+#include "AcroGameMode.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
@@ -11,12 +12,13 @@
 #include "AcroPlayerController.h"
 #include "UnrealNetwork.h"
 
-AAcroCharacter::AAcroCharacter()
+AAcroCharacter::AAcroCharacter() :
+	bIsDrawing(false),
+	bThrow(false)
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
-	// Don't rotate when the controller rotates.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
@@ -46,66 +48,21 @@ AAcroCharacter::AAcroCharacter()
 	characterMovement->MaxWalkSpeed = 600.f;
 	characterMovement->MaxFlySpeed = 600.f;
 
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
+	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character)
 	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
 
+	AcroMesh = NewObject<UAcroMesh>();
+	ProjectilePool = NewObject<UProjectilePool>();
+	ProjectilePool->SetupBP(TEXT("/Game/Blueprints/Snowball.Snowball_C"));
 }
 
-void AAcroCharacter::Tick(float DeltaSeconds)
+void AAcroCharacter::BeginPlay()
 {
-	Super::Tick(DeltaSeconds);
-	FVector curLocation = GetActorLocation();
-	FVector distanceCheck = curLocation - FVector(0.f, 0.f, curLocation.Z);
-	curLocation = (curLocation / distanceCheck.Size()) * LEVEL_RADIUS;
-	SetActorLocation(curLocation);
-	CameraBoom->RelativeRotation = FRotator(0.f, FMath::RadiansToDegrees(atan2f(curLocation.Y, curLocation.X)) + 180.f, 0.f);
-	if (bIsDrawing)
+	Super::BeginPlay();
+	if (HasAuthority())
 	{
-		DrawingMesh();
+		ProjectilePool->Initialize(GetWorld(), 4, 4);
 	}
-}
-
-void AAcroCharacter::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	// Replicate to everyone
-	DOREPLIFETIME(AAcroCharacter, AcroMesh);
-}
-
-void AAcroCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
-{
-	// set up gameplay key bindings
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
-	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
-	PlayerInputComponent->BindAxis("Move2DHorizontal", this, &AAcroCharacter::Move2DHorizontal);
-
-	PlayerInputComponent->BindAction("Draw", IE_Pressed, this, &AAcroCharacter::DrawStarted);
-	PlayerInputComponent->BindAction("Draw", IE_Released, this, &AAcroCharacter::DrawEnded);
-
-	PlayerInputComponent->BindTouch(IE_Pressed, this, &AAcroCharacter::TouchStarted);
-	PlayerInputComponent->BindTouch(IE_Released, this, &AAcroCharacter::TouchStopped);
-}
-
-void AAcroCharacter::Move2DHorizontal(float Value)
-{
-	if (Value != 0.0f)
-	{
-		FVector curLocation = GetActorLocation();
-		float rotationAmount = -Value / LEVEL_CIRCUMFERENCE * 360.f;
-		FVector endLocation = curLocation.RotateAngleAxis(rotationAmount, FVector::UpVector);
-		AddMovementInput(endLocation - curLocation, 1.f);
-	}
-}
-
-void AAcroCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
-{
-	Jump();
-}
-
-void AAcroCharacter::TouchStopped(const ETouchIndex::Type FingerIndex, const FVector Location)
-{
-	StopJumping();
 }
 
 FORCEINLINE FVector CollisionVector(FVector worldLocation, FVector worldDirection)
@@ -133,10 +90,82 @@ FORCEINLINE FVector CollisionVector(FVector worldLocation, FVector worldDirectio
 	}
 }
 
-
-void AAcroCharacter::DrawStarted()
+void AAcroCharacter::Tick(float DeltaSeconds)
 {
-	bIsDrawing = true;
+	Super::Tick(DeltaSeconds);
+	if (bIsDrawing)
+	{
+		// if (AcroMesh != NULL && AcroMesh->HasMeshActor())
+		// {
+		// 	DrawingMesh();
+		// }
+		if(HasAuthority())
+		{
+			DrawingMesh();
+		}
+		else
+		{
+			UpdateDrawPosition();
+		}
+	}
+	FVector curLocation = GetActorLocation();
+	FVector distanceCheck = curLocation - FVector(0.f, 0.f, curLocation.Z);
+	curLocation = (curLocation / distanceCheck.Size()) * LEVEL_RADIUS;
+	SetActorLocation(curLocation);
+	CameraBoom->RelativeRotation = FRotator(0.f, FMath::RadiansToDegrees(atan2f(curLocation.Y, curLocation.X)) + 180.f, 0.f);
+}
+
+void AAcroCharacter::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	// Replicate to everyone
+	DOREPLIFETIME(AAcroCharacter, AcroMesh);
+	DOREPLIFETIME(AAcroCharacter, ProjectilePool);
+}
+
+void AAcroCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
+{
+	// set up gameplay key bindings
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
+	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+	PlayerInputComponent->BindAxis("Move2DHorizontal", this, &AAcroCharacter::Move2DHorizontal);
+
+	PlayerInputComponent->BindAction("Draw", IE_Pressed, this, &AAcroCharacter::DrawStarted);
+	PlayerInputComponent->BindAction("Draw", IE_Released, this, &AAcroCharacter::DrawEnded);
+
+	PlayerInputComponent->BindAction("Throw", IE_Pressed, this, &AAcroCharacter::ThrowWindup);
+	PlayerInputComponent->BindAction("Throw", IE_Released, this, &AAcroCharacter::Throw);
+
+	PlayerInputComponent->BindTouch(IE_Pressed, this, &AAcroCharacter::TouchStarted);
+	PlayerInputComponent->BindTouch(IE_Released, this, &AAcroCharacter::TouchStopped);
+}
+
+void AAcroCharacter::Move2DHorizontal(float Value)
+{
+	if (Value != 0.0f)
+	{
+		FVector curLocation = GetActorLocation();
+		float rotationAmount = -Value / LEVEL_CIRCUMFERENCE * 360.f;
+		FVector endLocation = curLocation.RotateAngleAxis(rotationAmount, FVector::UpVector);
+		AddMovementInput(endLocation - curLocation, 1.f);
+	}
+}
+
+void AAcroCharacter::ThrowWindup()
+{
+	if (HasAuthority())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Server Throw Windup"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Client Throw Windup"));
+	}
+}
+
+void AAcroCharacter::Throw()
+{
 	float MouseX;
 	float MouseY;
 	AAcroPlayerController* PlayerController = Cast<AAcroPlayerController>(GetController());
@@ -146,40 +175,109 @@ void AAcroCharacter::DrawStarted()
 		FVector WorldLocation = FVector::ZeroVector;
 		FVector WorldDirection = FVector::ZeroVector;
 		PlayerController->DeprojectScreenPositionToWorld(MouseX, MouseY, WorldLocation, WorldDirection);
-		FVector collisionVector = CollisionVector(WorldLocation, WorldDirection);
-		if (collisionVector != FVector::ZeroVector)
+		FVector Position = CollisionVector(WorldLocation, WorldDirection);
+		FVector ActorLocation = GetActorLocation();
+		ActorLocation += FVector(0.f, 0.f, 32.f);
+		FVector Direction = Position - ActorLocation;
+		Direction.Normalize();
+		ActorLocation += Direction * 120.f;
+
+		if (HasAuthority())
 		{
-			UE_LOG(LogTemp, Warning, TEXT("BeginGeneratingMesh"));
-			UWorld* World = GetWorld();
-			if (HasAuthority())
+			ServerThrow(ActorLocation, Direction);
+		}
+		else
+		{
+			ClientThrow(ActorLocation, Direction);
+		}
+	}
+}
+
+void AAcroCharacter::ClientThrow_Implementation(FVector Position, FVector Direction)
+{
+	ServerThrow(Position, Direction);
+}
+
+void AAcroCharacter::ServerThrow(FVector Position, FVector Direction)
+{
+	TArray<UStaticMeshComponent*> Components;
+	AProjectile* Projectile = ProjectilePool->Acquire(GetWorld());
+	Projectile->GetComponents<UStaticMeshComponent>(Components);
+	Direction *= 1200.0; // TODO: Use wind-up strength
+	UE_LOG(LogTemp, Warning, TEXT("Applying Force %s"), *Direction.ToString());
+	for (UStaticMeshComponent* c : Components)
+	{
+		c->SetAllPhysicsPosition(Position);
+		FVector Velocity = c->GetComponentVelocity();
+		float Mass = c->CalculateMass();
+		c->AddImpulse(Direction, NAME_None, true);
+	}
+}
+
+void AAcroCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
+{
+	Jump();
+}
+
+void AAcroCharacter::TouchStopped(const ETouchIndex::Type FingerIndex, const FVector Location)
+{
+	StopJumping();
+}
+
+void AAcroCharacter::UpdateDrawPosition()
+{
+	float MouseX;
+	float MouseY;
+	AAcroPlayerController* PlayerController = Cast<AAcroPlayerController>(GetController());
+	if (PlayerController != nullptr)
+	{
+		PlayerController->GetMousePosition(MouseX, MouseY);
+		FVector WorldLocation = FVector::ZeroVector;
+		FVector WorldDirection = FVector::ZeroVector;
+		PlayerController->DeprojectScreenPositionToWorld(MouseX, MouseY, WorldLocation, WorldDirection);
+		FVector v = CollisionVector(WorldLocation, WorldDirection);
+		if (v != FVector::ZeroVector)
+		{
+			DrawPosition = v;
+			if (!HasAuthority())
 			{
-				AcroMesh->BeginGeneratingMesh(World, collisionVector);
+				SetDrawPosition(v);
 			}
 		}
 	}
 }
 
+void AAcroCharacter::DrawStarted()
+{
+	UE_LOG(LogTemp, Warning, TEXT("BeginGeneratingMesh"));
+	bIsDrawing = true;
+	UpdateDrawPosition();
+	if (!HasAuthority())
+	{
+		SetClientBeginDraw(DrawPosition);
+	}
+	else
+	{
+		SetServerBeginDraw(DrawPosition);
+	}
+}
+
+void AAcroCharacter::SetClientBeginDraw_Implementation(FVector Position)
+{
+	SetServerBeginDraw(Position);
+}
+
+void AAcroCharacter::SetServerBeginDraw(FVector Position)
+{
+	AcroMesh->SpawnMeshActor(GetWorld());
+	AcroMesh->BeginGeneratingMesh(Position);
+	bIsDrawing = true;
+}
+
 void AAcroCharacter::DrawingMesh()
 {
-	float MouseX;
-	float MouseY;
-	AAcroPlayerController* PlayerController = Cast<AAcroPlayerController>(GetController());
-	if (PlayerController != nullptr)
-	{
-		PlayerController->GetMousePosition(MouseX, MouseY);
-		FVector WorldLocation = FVector::ZeroVector;
-		FVector WorldDirection = FVector::ZeroVector;
-		PlayerController->DeprojectScreenPositionToWorld(MouseX, MouseY, WorldLocation, WorldDirection);
-		FVector collisionVector = CollisionVector(WorldLocation, WorldDirection);
-		if (collisionVector != FVector::ZeroVector)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("ContinueGeneratingMesh"));
-			if (HasAuthority())
-			{
-				AcroMesh->ContinueGeneratingMesh(collisionVector);
-			}
-		}
-	}
+	UpdateDrawPosition();
+	AcroMesh->ContinueGeneratingMesh(DrawPosition);
 }
 
 void AAcroCharacter::DrawEnded()
@@ -187,6 +285,14 @@ void AAcroCharacter::DrawEnded()
 	bIsDrawing = false;
 	if (HasAuthority())
 	{
-		AcroMesh->EndGeneratingMesh();
 	}
+	else
+	{
+		SetClientEndDraw();
+	}
+}
+
+void AAcroCharacter::SetClientEndDraw_Implementation()
+{
+	bIsDrawing = false;
 }
