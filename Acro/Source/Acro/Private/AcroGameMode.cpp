@@ -1,17 +1,19 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AcroGameMode.h"
-#include "../Public/AcroCharacter.h"
+#include "AcroCharacter.h"
 #include "AcroGameInstance.h"
 #include "Engine/GameEngine.h"
 #include "Runtime/Core/Public/HAL/PlatformFilemanager.h"
 #include "Runtime/Core/Public/GenericPlatform/GenericPlatformFile.h"
-#include "../Public/AcroCheckpointTrigger.h"
-#include "../Public/AcroPlayerState.h"
-#include "../Public/AcroPlayerController.h"
-#include "../Public/AcroDefinitions.h"
+#include "AcroCheckpointTrigger.h"
+#include "AcroPlayerState.h"
+#include "AcroPlayerController.h"
+#include "AcroDefinitions.h"
+#include "AcroLocalResourceManager.h"
 
-AAcroGameMode::AAcroGameMode()
+AAcroGameMode::AAcroGameMode() :
+	ResourceManager(MakeUnique<AcroLocalResourceManager>())
 {
 	static ConstructorHelpers::FClassFinder<AAcroCharacter> PlayerPawnBPClass(TEXT("/Game/Blueprints/SideScrollerCharacter.SideScrollerCharacter_C"));
 	if (PlayerPawnBPClass.Succeeded())
@@ -29,42 +31,40 @@ void AAcroGameMode::InitGame(const FString & MapName, const FString & Options, F
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
-
-	LevelSegments.Empty(); // TODO: Make sure this is done on Game ending.
-
 	FLevelData * CurrentLevelData = GameInstance->GetCurrentLevelData();
-	FString DirectoryPath = FString::Printf(TEXT("%s/%s/"), *SAVE_DIRECTORY_PATH, *(CurrentLevelData->UUID));
-	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-	FString SaveDirectoryAbsolutePath = PlatformFile.ConvertToAbsolutePathForExternalAppForWrite(*DirectoryPath);
-	if (!PlatformFile.DirectoryExists(*SaveDirectoryAbsolutePath))
-	{
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, "Cannot find save path: " + DirectoryPath);
-		return;
-	}
+	ResourceManager->LoadAcroMeshes(CurrentLevelData, &MeshesToLoad);
 
-	for (int i = 0; i < CurrentLevelData->LevelSegments; i++)
-	{
-		TArray<uint8> BinaryArray;
-		FString FullPath = SaveDirectoryAbsolutePath + "seg_" + FString::FromInt(i) + ".ass";
-		if (!FFileHelper::LoadFileToArray(BinaryArray, *FullPath))
-		{
-			break;
-		}
-		if (BinaryArray.Num() <= 0)
-		{
-			break;
-		}
-		FMemoryReader FromBinary = FMemoryReader(BinaryArray, true);
-		FromBinary.Seek(0);
+	// LevelSegments.Empty(); // TODO: Make sure this is done on Game ending.
 
-		LevelSegments.Add(FLevelSegment());
-		LevelSegments[i].SaveLoadSegment(FromBinary);
+	// FString DirectoryPath = FString::Printf(TEXT("%s/%s/"), *SAVE_DIRECTORY_PATH, *(CurrentLevelData->UUID));
+	// IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+	// FString SaveDirectoryAbsolutePath = PlatformFile.ConvertToAbsolutePathForExternalAppForWrite(*DirectoryPath);
 
-		BinaryArray.Empty();
 
-		FromBinary.FlushCache();
-		FromBinary.Close();
-	}
+	// for (int i = 0; i < CurrentLevelData->LevelSegments; i++)
+	// {
+	// 	TArray<uint8> BinaryArray;
+	// 	FString FullPath = SaveDirectoryAbsolutePath + "seg_" + FString::FromInt(i) + ".ass";
+	// 	if (!FFileHelper::LoadFileToArray(BinaryArray, *FullPath))
+	// 	{
+	// 		break;
+	// 	}
+	// 	if (BinaryArray.Num() <= 0)
+	// 	{
+	// 		break;
+	// 	}
+	// 	FMemoryReader FromBinary = FMemoryReader(BinaryArray, true);
+	// 	FromBinary.Seek(0);
+
+	// 	LevelSegments.Add(FLevelSegment());
+	// 	LevelSegments[i].SaveLoadSegment(FromBinary);
+
+	// 	BinaryArray.Empty();
+
+	// 	FromBinary.FlushCache();
+	// 	FromBinary.Close();
+	// }
+
 }
 
 bool AAcroGameMode::SaveLevelData()
@@ -126,6 +126,11 @@ bool AAcroGameMode::SaveLevelData()
 void AAcroGameMode::StartPlay()
 {
 	Super::StartPlay();
+	UWorld* World = GetWorld();
+	for (int i = 0; i < MeshesToLoad.Num(); i++)
+	{
+		MeshesToLoad[i]->ConstructLoadedMesh(World);
+	}
 	//if (LevelSegments.Num() == 0)
 	//{
 	//    EnterCreativeMode();
@@ -227,4 +232,11 @@ void AAcroGameMode::EnterTestMode()
 		AAcroPlayerController* PlayerController = Cast<AAcroPlayerController>(PC);
 		PlayerController->EnterTestMode(Position);
 	}
+}
+
+void AAcroGameMode::SaveMesh(UAcroMesh* Mesh)
+{
+	UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
+	FLevelData * CurrentLevelData = GameInstance->GetCurrentLevelData();
+	ResourceManager->SaveAcroMesh(CurrentLevelData, Mesh);
 }

@@ -12,9 +12,8 @@
 #include "AcroPlayerController.h"
 #include "UnrealNetwork.h"
 
-AAcroCharacter::AAcroCharacter() :
-	bIsDrawing(false),
-	bThrow(false)
+AAcroCharacter::AAcroCharacter() : bIsDrawing(false),
+								   bThrow(false)
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
@@ -29,8 +28,8 @@ AAcroCharacter::AAcroCharacter() :
 	CameraBoom->bAbsoluteRotation = true; // Rotation of the character should not affect rotation of boom
 	CameraBoom->bDoCollisionTest = false;
 	CameraBoom->TargetArmLength = 1000.f;
-	CameraBoom->SocketOffset = FVector(0.f,0.f,75.f);
-	CameraBoom->RelativeRotation = FRotator(0.f,180.f,0.f);
+	CameraBoom->SocketOffset = FVector(0.f, 0.f, 75.f);
+	CameraBoom->RelativeRotation = FRotator(0.f, 180.f, 0.f);
 
 	// Create a camera and attach to boom
 	SideViewCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("SideViewCamera"));
@@ -38,8 +37,8 @@ AAcroCharacter::AAcroCharacter() :
 	SideViewCameraComponent->bUsePawnControlRotation = false; // We don't want the controller rotating the camera
 
 	// Configure character movement
-	UCharacterMovementComponent* characterMovement = GetCharacterMovement();
-	characterMovement->bOrientRotationToMovement = true; // Face in the direction we are moving..
+	UCharacterMovementComponent *characterMovement = GetCharacterMovement();
+	characterMovement->bOrientRotationToMovement = true;			// Face in the direction we are moving..
 	characterMovement->RotationRate = FRotator(0.0f, 720.0f, 0.0f); // ...at this rotation rate
 	characterMovement->GravityScale = 2.f;
 	characterMovement->AirControl = 0.80f;
@@ -72,9 +71,9 @@ FORCEINLINE FVector CollisionVector(FVector worldLocation, FVector worldDirectio
 	FVector2D worldDirection2D = FVector2D(worldDirection.X, worldDirection.Y);
 
 	float a = powf(worldDirection.X - worldLocation.X, 2) + powf(worldDirection.Y - worldLocation.Y, 2);
-	float b = 2 * (worldDirection.X - worldLocation.X)*worldLocation.X + 2 * (worldDirection.Y - worldLocation.Y)*worldLocation.Y;
+	float b = 2 * (worldDirection.X - worldLocation.X) * worldLocation.X + 2 * (worldDirection.Y - worldLocation.Y) * worldLocation.Y;
 	float c = powf(worldLocation.X, 2) + powf(worldLocation.Y, 2) - powf(LEVEL_RADIUS, 2);
-	float discriminant = b * b - 4 * a*c;
+	float discriminant = b * b - 4 * a * c;
 	if (discriminant > 0)
 	{
 		float scalar1 = (-b + sqrtf(discriminant)) / (2 * a);
@@ -99,7 +98,7 @@ void AAcroCharacter::Tick(float DeltaSeconds)
 		// {
 		// 	DrawingMesh();
 		// }
-		if(HasAuthority())
+		if (HasAuthority())
 		{
 			DrawingMesh();
 		}
@@ -115,7 +114,7 @@ void AAcroCharacter::Tick(float DeltaSeconds)
 	CameraBoom->RelativeRotation = FRotator(0.f, FMath::RadiansToDegrees(atan2f(curLocation.Y, curLocation.X)) + 180.f, 0.f);
 }
 
-void AAcroCharacter::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+void AAcroCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
@@ -124,7 +123,7 @@ void AAcroCharacter::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AAcroCharacter, ProjectilePool);
 }
 
-void AAcroCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
+void AAcroCharacter::SetupPlayerInputComponent(class UInputComponent *PlayerInputComponent)
 {
 	// set up gameplay key bindings
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
@@ -168,7 +167,7 @@ void AAcroCharacter::Throw()
 {
 	float MouseX;
 	float MouseY;
-	AAcroPlayerController* PlayerController = Cast<AAcroPlayerController>(GetController());
+	AAcroPlayerController *PlayerController = Cast<AAcroPlayerController>(GetController());
 	if (PlayerController != nullptr)
 	{
 		PlayerController->GetMousePosition(MouseX, MouseY);
@@ -200,12 +199,12 @@ void AAcroCharacter::ClientThrow_Implementation(FVector Position, FVector Direct
 
 void AAcroCharacter::ServerThrow(FVector Position, FVector Direction)
 {
-	TArray<UStaticMeshComponent*> Components;
-	AProjectile* Projectile = ProjectilePool->Acquire(GetWorld());
+	TArray<UStaticMeshComponent *> Components;
+	AProjectile *Projectile = ProjectilePool->Acquire(GetWorld());
 	Projectile->GetComponents<UStaticMeshComponent>(Components);
 	Direction *= 1200.0; // TODO: Use wind-up strength
 	UE_LOG(LogTemp, Warning, TEXT("Applying Force %s"), *Direction.ToString());
-	for (UStaticMeshComponent* c : Components)
+	for (UStaticMeshComponent *c : Components)
 	{
 		c->SetAllPhysicsPosition(Position);
 		FVector Velocity = c->GetComponentVelocity();
@@ -228,7 +227,7 @@ void AAcroCharacter::UpdateDrawPosition()
 {
 	float MouseX;
 	float MouseY;
-	AAcroPlayerController* PlayerController = Cast<AAcroPlayerController>(GetController());
+	AAcroPlayerController *PlayerController = Cast<AAcroPlayerController>(GetController());
 	if (PlayerController != nullptr)
 	{
 		PlayerController->GetMousePosition(MouseX, MouseY);
@@ -285,6 +284,7 @@ void AAcroCharacter::DrawEnded()
 	bIsDrawing = false;
 	if (HasAuthority())
 	{
+		SetServerEndDraw();
 	}
 	else
 	{
@@ -295,4 +295,11 @@ void AAcroCharacter::DrawEnded()
 void AAcroCharacter::SetClientEndDraw_Implementation()
 {
 	bIsDrawing = false;
+	SetServerEndDraw();
+}
+
+void AAcroCharacter::SetServerEndDraw()
+{
+    AAcroGameMode* GameMode = Cast<AAcroGameMode>(GetWorld()->GetAuthGameMode());
+	GameMode->SaveMesh(AcroMesh);
 }

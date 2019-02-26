@@ -74,6 +74,7 @@ protected:
 	bool SetClientEndDraw_Validate() { return true; }
 
 	void SetServerBeginDraw(FVector Position);
+	void SetServerEndDraw();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ClientThrow(FVector Position, FVector Direction);
