@@ -24,6 +24,7 @@
 *.la
 *.a
 *.lib
+!ThirdParty/GorbClient/Lib/*.lib
 
 # Executables
 *.exe
@@ -72,3 +73,6 @@ Plugins/*/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+# temp folder
+enc_temp_folder

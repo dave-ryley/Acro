@@ -11,9 +11,9 @@
 #include "AcroPlayerController.h"
 #include "AcroDefinitions.h"
 #include "AcroLocalResourceManager.h"
+#include "AcroRemoteResourceManager.h"
 
-AAcroGameMode::AAcroGameMode() :
-	ResourceManager(MakeUnique<AcroLocalResourceManager>())
+AAcroGameMode::AAcroGameMode()
 {
 	static ConstructorHelpers::FClassFinder<AAcroCharacter> PlayerPawnBPClass(TEXT("/Game/Blueprints/SideScrollerCharacter.SideScrollerCharacter_C"));
 	if (PlayerPawnBPClass.Succeeded())
@@ -29,10 +29,11 @@ AAcroGameMode::AAcroGameMode() :
 void AAcroGameMode::InitGame(const FString & MapName, const FString & Options, FString & ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
+	ResourceManager = MakeUnique<AcroRemoteResourceManager>();
 
 	UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
 	FLevelData * CurrentLevelData = GameInstance->GetCurrentLevelData();
-	ResourceManager->LoadAcroMeshes(CurrentLevelData, &MeshesToLoad);
+	if (!ResourceManager->LoadAcroMeshes(CurrentLevelData, &MeshesToLoad)) return;
 
 	// LevelSegments.Empty(); // TODO: Make sure this is done on Game ending.
 

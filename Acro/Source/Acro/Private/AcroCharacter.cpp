@@ -51,8 +51,8 @@ AAcroCharacter::AAcroCharacter() : bIsDrawing(false),
 	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
 
 	AcroMesh = NewObject<UAcroMesh>();
-	ProjectilePool = NewObject<UProjectilePool>();
-	ProjectilePool->SetupBP(TEXT("/Game/Blueprints/Snowball.Snowball_C"));
+	//ProjectilePool = NewObject<UProjectilePool>();
+	//ProjectilePool->SetupBP(TEXT("/Game/Blueprints/Snowball.Snowball_C"));
 }
 
 void AAcroCharacter::BeginPlay()
@@ -60,7 +60,7 @@ void AAcroCharacter::BeginPlay()
 	Super::BeginPlay();
 	if (HasAuthority())
 	{
-		ProjectilePool->Initialize(GetWorld(), 4, 4);
+		//ProjectilePool->Initialize(GetWorld(), 4, 4);
 	}
 }
 
@@ -120,7 +120,7 @@ void AAcroCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLi
 
 	// Replicate to everyone
 	DOREPLIFETIME(AAcroCharacter, AcroMesh);
-	DOREPLIFETIME(AAcroCharacter, ProjectilePool);
+	//DOREPLIFETIME(AAcroCharacter, ProjectilePool);
 }
 
 void AAcroCharacter::SetupPlayerInputComponent(class UInputComponent *PlayerInputComponent)
@@ -199,18 +199,18 @@ void AAcroCharacter::ClientThrow_Implementation(FVector Position, FVector Direct
 
 void AAcroCharacter::ServerThrow(FVector Position, FVector Direction)
 {
-	TArray<UStaticMeshComponent *> Components;
-	AProjectile *Projectile = ProjectilePool->Acquire(GetWorld());
-	Projectile->GetComponents<UStaticMeshComponent>(Components);
-	Direction *= 1200.0; // TODO: Use wind-up strength
-	UE_LOG(LogTemp, Warning, TEXT("Applying Force %s"), *Direction.ToString());
-	for (UStaticMeshComponent *c : Components)
-	{
-		c->SetAllPhysicsPosition(Position);
-		FVector Velocity = c->GetComponentVelocity();
-		float Mass = c->CalculateMass();
-		c->AddImpulse(Direction, NAME_None, true);
-	}
+	//TArray<UStaticMeshComponent *> Components;
+	//AProjectile *Projectile = ProjectilePool->Acquire(GetWorld());
+	//Projectile->GetComponents<UStaticMeshComponent>(Components);
+	//Direction *= 1200.0; // TODO: Use wind-up strength
+	//UE_LOG(LogTemp, Warning, TEXT("Applying Force %s"), *Direction.ToString());
+	//for (UStaticMeshComponent *c : Components)
+	//{
+	//	c->SetAllPhysicsPosition(Position);
+	//	FVector Velocity = c->GetComponentVelocity();
+	//	float Mass = c->CalculateMass();
+	//	c->AddImpulse(Direction, NAME_None, true);
+	//}
 }
 
 void AAcroCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
