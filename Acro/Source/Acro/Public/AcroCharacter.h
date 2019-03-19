@@ -77,11 +77,11 @@ protected:
 	void SetServerEndDraw();
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ClientThrow(FVector Position, FVector Direction);
-	void ClientThrow_Implementation(FVector Position, FVector Direction);
-	bool ClientThrow_Validate(FVector Position, FVector Direction) { return true; }
+	void ClientThrow(FVector2D Position, FVector2D Direction);
+	void ClientThrow_Implementation(FVector2D Position, FVector2D Direction);
+	bool ClientThrow_Validate(FVector2D Position, FVector2D Direction) { return true; }
 
-	void ServerThrow(FVector Position, FVector Direction);
+	void ServerThrow(FVector2D Position, FVector2D Direction);
 
 private:
 	UPROPERTY(Replicated)

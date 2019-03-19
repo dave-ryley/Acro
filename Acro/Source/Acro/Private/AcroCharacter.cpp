@@ -8,9 +8,10 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/GameEngine.h"
-#include "../Public/AcroDefinitions.h"
+#include "AcroDefinitions.h"
 #include "AcroPlayerController.h"
 #include "UnrealNetwork.h"
+#include "GameCoordinateUtils.h"
 
 AAcroCharacter::AAcroCharacter() : bIsDrawing(false),
 								   bThrow(false)
@@ -52,40 +53,19 @@ AAcroCharacter::AAcroCharacter() : bIsDrawing(false),
 
 	AcroMesh = NewObject<UAcroMesh>();
 	ProjectilePool = NewObject<UProjectilePool>();
-	ProjectilePool->SetupBP(TEXT("/Game/Blueprints/Snowball.Snowball_C"));
+	ProjectilePool->SetupBP(TEXT("/Game/Blueprints/Snowball"), TEXT("/Game/FX/SnowballExplosion_P.SnowballExplosion_P"));
 }
 
 void AAcroCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	if (HasAuthority())
+	if (HasAuthority() && ProjectilePool != nullptr)
 	{
 		ProjectilePool->Initialize(GetWorld(), 4, 4);
 	}
-}
-
-FORCEINLINE FVector CollisionVector(FVector worldLocation, FVector worldDirection)
-{
-	worldDirection *= 100000.f;
-	worldDirection += worldLocation;
-	FVector2D worldDirection2D = FVector2D(worldDirection.X, worldDirection.Y);
-
-	float a = powf(worldDirection.X - worldLocation.X, 2) + powf(worldDirection.Y - worldLocation.Y, 2);
-	float b = 2 * (worldDirection.X - worldLocation.X) * worldLocation.X + 2 * (worldDirection.Y - worldLocation.Y) * worldLocation.Y;
-	float c = powf(worldLocation.X, 2) + powf(worldLocation.Y, 2) - powf(LEVEL_RADIUS, 2);
-	float discriminant = b * b - 4 * a * c;
-	if (discriminant > 0)
+	else if (ProjectilePool == nullptr)
 	{
-		float scalar1 = (-b + sqrtf(discriminant)) / (2 * a);
-		float scalar2 = (-b - sqrtf(discriminant)) / (2 * a);
-		scalar1 = (scalar1 > 0 && scalar1 < 1) ? scalar1 : scalar2;
-		scalar2 = (scalar2 > 0 && scalar2 < 1) ? scalar2 : scalar1;
-		float scalar = (scalar1 < scalar2) ? scalar1 : scalar2;
-		return ((worldDirection - worldLocation) * scalar) + worldLocation;
-	}
-	else
-	{
-		return FVector::ZeroVector;
+		UE_LOG(LogTemp, Error, TEXT("ProjectilePool == nullptr. WTF Happened?"));
 	}
 }
 
@@ -170,47 +150,42 @@ void AAcroCharacter::Throw()
 	AAcroPlayerController *PlayerController = Cast<AAcroPlayerController>(GetController());
 	if (PlayerController != nullptr)
 	{
-		PlayerController->GetMousePosition(MouseX, MouseY);
-		FVector WorldLocation = FVector::ZeroVector;
-		FVector WorldDirection = FVector::ZeroVector;
-		PlayerController->DeprojectScreenPositionToWorld(MouseX, MouseY, WorldLocation, WorldDirection);
-		FVector Position = CollisionVector(WorldLocation, WorldDirection);
+		FVector2D ActorScreenLocation;
 		FVector ActorLocation = GetActorLocation();
 		ActorLocation += FVector(0.f, 0.f, 32.f);
-		FVector Direction = Position - ActorLocation;
+		FVector2D ActorGameLocation = GameCoordinateUtils::WorldToGameCoordinates(ActorLocation);
+
+		PlayerController->ProjectWorldLocationToScreen(ActorLocation, ActorScreenLocation);
+		PlayerController->GetMousePosition(MouseX, MouseY);
+		FVector2D Direction = ActorScreenLocation - FVector2D(MouseX, MouseY);
 		Direction.Normalize();
-		ActorLocation += Direction * 120.f;
 
 		if (HasAuthority())
 		{
-			ServerThrow(ActorLocation, Direction);
+			ServerThrow(ActorGameLocation, Direction);
 		}
 		else
 		{
-			ClientThrow(ActorLocation, Direction);
+			ClientThrow(ActorGameLocation, Direction);
 		}
 	}
 }
 
-void AAcroCharacter::ClientThrow_Implementation(FVector Position, FVector Direction)
+void AAcroCharacter::ClientThrow_Implementation(FVector2D Position, FVector2D Direction)
 {
 	ServerThrow(Position, Direction);
 }
 
-void AAcroCharacter::ServerThrow(FVector Position, FVector Direction)
+void AAcroCharacter::ServerThrow(FVector2D Position, FVector2D Direction)
 {
 	TArray<UStaticMeshComponent *> Components;
-	AProjectile *Projectile = ProjectilePool->Acquire(GetWorld());
-	Projectile->GetComponents<UStaticMeshComponent>(Components);
-	Direction *= 1200.0; // TODO: Use wind-up strength
-	UE_LOG(LogTemp, Warning, TEXT("Applying Force %s"), *Direction.ToString());
-	for (UStaticMeshComponent *c : Components)
+	if (ProjectilePool == nullptr)
 	{
-		c->SetAllPhysicsPosition(Position);
-		FVector Velocity = c->GetComponentVelocity();
-		float Mass = c->CalculateMass();
-		c->AddImpulse(Direction, NAME_None, true);
+		UE_LOG(LogTemp, Error, TEXT("ProjectilePool == nullptr. WTF Happened?"));
+		return;
 	}
+	AProjectile *Projectile = ProjectilePool->Acquire(GetWorld());
+	Projectile->Spawn(Position, Direction);
 }
 
 void AAcroCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
@@ -231,10 +206,7 @@ void AAcroCharacter::UpdateDrawPosition()
 	if (PlayerController != nullptr)
 	{
 		PlayerController->GetMousePosition(MouseX, MouseY);
-		FVector WorldLocation = FVector::ZeroVector;
-		FVector WorldDirection = FVector::ZeroVector;
-		PlayerController->DeprojectScreenPositionToWorld(MouseX, MouseY, WorldLocation, WorldDirection);
-		FVector v = CollisionVector(WorldLocation, WorldDirection);
+		FVector v = GameCoordinateUtils::ScreenToWorldCoordinates(PlayerController, FVector2D(MouseX, MouseY));
 		if (v != FVector::ZeroVector)
 		{
 			DrawPosition = v;

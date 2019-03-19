@@ -76,13 +76,11 @@ bool AAcroGameMode::SaveLevelData()
 	FString DirectoryPostfix = FString::Printf(TEXT("/%s/"), *(CurrentLevelData->UUID));
 	FString SaveDirectoryAbsolutePath = PlatformFile.ConvertToAbsolutePathForExternalAppForWrite(*DirectoryPath);
 	SaveDirectoryAbsolutePath += DirectoryPostfix;
-	printf("SaveDirectoryAbsolutePath: %s", *SaveDirectoryAbsolutePath);
 	if (!PlatformFile.DirectoryExists(*SaveDirectoryAbsolutePath))
 	{
 		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, "Cannot find save path: " + DirectoryPath);
 		return false;
 	}
-	printf("Saving %d Level Segments", LevelSegments.Num());
 
 	for (int i = 0; i < LevelSegments.Num(); i++)
 	{
@@ -93,7 +91,6 @@ bool AAcroGameMode::SaveLevelData()
 			return false;
 		}
 		FString FullPath = SaveDirectoryAbsolutePath + "seg_" + FString::FromInt(i) + ".ass";
-		printf("Saving to path %s", *FullPath);
 		// TODO: Warn if SaveArrayToFile returns false.
 		FFileHelper::SaveArrayToFile(ByteArrayBuffer, *FullPath);
 		ByteArrayBuffer.FlushCache();
