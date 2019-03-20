@@ -10,13 +10,18 @@
 			"LoadingPhase": "Default",
 			"AdditionalDependencies": [
 				"Engine",
-				"UMG"
+				"UMG",
+				"RuntimeMeshComponent"
 			]
 		}
 	],
 	"Plugins": [
 		{
 			"Name": "OnlineSubsystemSteam",
+			"Enabled": true
+		},
+		{
+			"Name": "LiveLink",
 			"Enabled": true
 		}
 	],

@@ -1,4 +1,4 @@
-// Copyright © 2018-2019 David Ryley and David Ryan. All rights reserved.
+// Copyright ï¿½ 2018-2019 David Ryley and David Ryan. All rights reserved.
 
 #pragma once
 
@@ -7,6 +7,7 @@
 #include "LevelSegment.h"
 #include "AcroCheckpointTrigger.h"
 #include "AcroCharacter.h"
+#include "IAcroResourceManager.h"
 #include "AcroGameMode.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnValidateLevelDelegate);
@@ -29,6 +30,8 @@ public:
 
 	void ValidateLevelSegment();
 
+	void SaveMesh(UAcroMesh* Mesh);
+
 	UFUNCTION(BlueprintCallable, Category = "Game States")
 	void EnterCreativeMode();
 	UFUNCTION(BlueprintCallable, Category = "Game States")
@@ -48,4 +51,8 @@ private:
 	AAcroCheckpointTrigger* EndCheckpointTrigger = nullptr;
 	AAcroCheckpointTrigger* ValidationCheckpointTrigger = nullptr;
 	bool bLevelInProgress = false;
+	FString FullMeshPath;
+	TArray<UAcroMesh*> MeshesToLoad;
+
+	TUniquePtr<IAcroResourceManager> ResourceManager;
 };
