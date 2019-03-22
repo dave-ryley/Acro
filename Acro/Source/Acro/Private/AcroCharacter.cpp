@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright � 2018-2019 David Ryley and David Ryan. All rights reserved.
 
 #include "AcroCharacter.h"
 #include "AcroGameMode.h"
@@ -51,7 +51,6 @@ AAcroCharacter::AAcroCharacter() : bIsDrawing(false),
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character)
 	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
 
-	AcroMesh = NewObject<UAcroMesh>();
 	ProjectilePool = NewObject<UProjectilePool>();
 	ProjectilePool->SetupBP(TEXT("/Game/Blueprints/Snowball"), TEXT("/Game/FX/SnowballExplosion_P.SnowballExplosion_P"));
 }
@@ -99,7 +98,6 @@ void AAcroCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	// Replicate to everyone
-	DOREPLIFETIME(AAcroCharacter, AcroMesh);
 	DOREPLIFETIME(AAcroCharacter, ProjectilePool);
 }
 
@@ -240,6 +238,8 @@ void AAcroCharacter::SetClientBeginDraw_Implementation(FVector Position)
 
 void AAcroCharacter::SetServerBeginDraw(FVector Position)
 {
+	AAcroGameMode* GameMode = Cast<AAcroGameMode>(GetWorld()->GetAuthGameMode());
+	AcroMesh = NewObject<UAcroMesh>();
 	AcroMesh->SpawnMeshActor(GetWorld());
 	AcroMesh->BeginGeneratingMesh(Position);
 	bIsDrawing = true;
@@ -274,4 +274,10 @@ void AAcroCharacter::SetServerEndDraw()
 {
     AAcroGameMode* GameMode = Cast<AAcroGameMode>(GetWorld()->GetAuthGameMode());
 	GameMode->SaveMesh(AcroMesh);
+	AcroMesh = nullptr;
+}
+
+void AAcroCharacter::Hit(FVector Direction)
+{
+	UE_LOG(LogTemp, Warning, TEXT("TODO: Remove Health From Character. Apply Direction Force. Camera Shake."));
 }

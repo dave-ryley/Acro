@@ -32,7 +32,7 @@ void AAcroGameMode::InitGame(const FString & MapName, const FString & Options, F
 
 	UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
 	FLevelData * CurrentLevelData = GameInstance->GetCurrentLevelData();
-	ResourceManager->LoadAcroMeshes(CurrentLevelData, &MeshesToLoad);
+	ResourceManager->LoadAcroMeshes(CurrentLevelData, &Meshes);
 
 	// LevelSegments.Empty(); // TODO: Make sure this is done on Game ending.
 
@@ -124,9 +124,9 @@ void AAcroGameMode::StartPlay()
 {
 	Super::StartPlay();
 	UWorld* World = GetWorld();
-	for (int i = 0; i < MeshesToLoad.Num(); i++)
+	for (int i = 0; i < Meshes.Num(); i++)
 	{
-		MeshesToLoad[i]->ConstructLoadedMesh(World);
+		Meshes[i]->ConstructLoadedMesh(World);
 	}
 	//if (LevelSegments.Num() == 0)
 	//{
@@ -233,7 +233,16 @@ void AAcroGameMode::EnterTestMode()
 
 void AAcroGameMode::SaveMesh(UAcroMesh* Mesh)
 {
+	Meshes.Add(Mesh);
 	UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
 	FLevelData * CurrentLevelData = GameInstance->GetCurrentLevelData();
 	ResourceManager->SaveAcroMesh(CurrentLevelData, Mesh);
+}
+
+void AAcroGameMode::DeleteMesh(UAcroMesh* Mesh)
+{
+	Meshes.Remove(Mesh);
+	UAcroGameInstance* GameInstance = Cast<UAcroGameInstance>(GetGameInstance());
+	FLevelData * CurrentLevelData = GameInstance->GetCurrentLevelData();
+	ResourceManager->DeleteAcroMesh(CurrentLevelData, Mesh);
 }

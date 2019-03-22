@@ -31,6 +31,7 @@ public:
 	void ValidateLevelSegment();
 
 	void SaveMesh(UAcroMesh* Mesh);
+	void DeleteMesh(UAcroMesh* Mesh);
 
 	UFUNCTION(BlueprintCallable, Category = "Game States")
 	void EnterCreativeMode();
@@ -52,7 +53,7 @@ private:
 	AAcroCheckpointTrigger* ValidationCheckpointTrigger = nullptr;
 	bool bLevelInProgress = false;
 	FString FullMeshPath;
-	TArray<UAcroMesh*> MeshesToLoad;
+	TArray<UAcroMesh*> Meshes;
 
 	TUniquePtr<IAcroResourceManager> ResourceManager;
 };

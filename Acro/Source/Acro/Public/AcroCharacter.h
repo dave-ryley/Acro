@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright © 2018-2019 David Ryley and David Ryan. All rights reserved.
 
 #pragma once
 
@@ -32,6 +32,8 @@ public:
 	FORCEINLINE class UCameraComponent* GetSideViewCameraComponent() const { return SideViewCameraComponent; }
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+
+	void Hit(FVector Direction);
 
 protected:
 
@@ -84,7 +86,6 @@ protected:
 	void ServerThrow(FVector2D Position, FVector2D Direction);
 
 private:
-	UPROPERTY(Replicated)
 	UAcroMesh* AcroMesh;
 
 	bool bIsDrawing = false;
