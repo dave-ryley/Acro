@@ -93,7 +93,7 @@ void AProjectile::Tick(float DeltaSeconds)
 				AAcroMeshActor* MeshActor = Cast<AAcroMeshActor>(Actor);
 				if (MeshActor != nullptr)
 				{
-					MeshActor->Hit(WorldPosition - OldWorldPosition);
+					MeshActor->Hit(WorldPosition, WorldPosition - OldWorldPosition);
 					return;
 				}
 				AAcroCharacter* Character = Cast<AAcroCharacter>(Actor);

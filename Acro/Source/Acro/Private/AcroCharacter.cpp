@@ -238,7 +238,6 @@ void AAcroCharacter::SetClientBeginDraw_Implementation(FVector Position)
 
 void AAcroCharacter::SetServerBeginDraw(FVector Position)
 {
-	AAcroGameMode* GameMode = Cast<AAcroGameMode>(GetWorld()->GetAuthGameMode());
 	AcroMesh = NewObject<UAcroMesh>();
 	AcroMesh->SpawnMeshActor(GetWorld());
 	AcroMesh->BeginGeneratingMesh(Position);
