@@ -14,4 +14,4 @@ const FString SAVE_DIRECTORY_PATH = FString("SaveGames");
 #define VECTOR_CUTOFF_THRESHOLD 75
 
 #define PI_2 PI*2
-#define GRAVITY 0.f
+#define GRAVITY 1.f

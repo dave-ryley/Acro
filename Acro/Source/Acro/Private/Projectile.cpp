@@ -1,9 +1,10 @@
 #include "Projectile.h"
 #include "ProjectilePool.h"
+#include "AcroMeshActor.h"
+#include "AcroCharacter.h"
 #include "GameCoordinateUtils.h"
 #include "AcroDefinitions.h"
 #include "Components/SphereComponent.h"
-
 
 // Trace Function Taken from and modified: https://wiki.unrealengine.com/Trace_Functions
 static FORCEINLINE bool Trace(
@@ -82,14 +83,30 @@ void AProjectile::Tick(float DeltaSeconds)
 		FVector OldWorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
 		Position += (Direction * 1500.f * DeltaSeconds); // TODO: Replace 1500 with windup force
 		FVector WorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
-		FHitResult HitResult = FHitResult();
-		if (Trace(GetWorld(), this, OldWorldPosition, WorldPosition, HitResult, ECC_Visibility))
+		if (HasAuthority())
 		{
-			ProjectilePool->Explode(this);
-		}
-		else
-		{
-			SetActorLocation(WorldPosition, false, nullptr, ETeleportType::None);
+			FHitResult HitResult = FHitResult();
+			if (Trace(GetWorld(), this, OldWorldPosition, WorldPosition, HitResult, ECC_WorldDynamic))
+			{
+				ProjectilePool->Explode(this);
+				AActor* Actor = HitResult.GetActor();
+				AAcroMeshActor* MeshActor = Cast<AAcroMeshActor>(Actor);
+				if (MeshActor != nullptr)
+				{
+					MeshActor->Hit(WorldPosition, WorldPosition - OldWorldPosition);
+					return;
+				}
+				AAcroCharacter* Character = Cast<AAcroCharacter>(Actor);
+				if(Character != nullptr)
+				{
+					Character->Hit(WorldPosition - OldWorldPosition);
+					return;
+				}
+			}
+			else
+			{
+				SetActorLocation(WorldPosition, false, nullptr, ETeleportType::None);
+			}
 		}
 	}
 }
