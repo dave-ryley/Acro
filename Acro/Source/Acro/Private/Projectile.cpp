@@ -49,6 +49,7 @@ AProjectile::AProjectile()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	SetActorTickEnabled(true);
+	bReplicates = false;
 
 	USphereComponent* Sphere = CreateDefaultSubobject<USphereComponent>(FName("SphereComponent"));
 	Sphere->SetWorldScale3D(FVector(1.f, 1.0f, 1.0f));
@@ -79,12 +80,12 @@ void AProjectile::Tick(float DeltaSeconds)
 {
 	if (active)
 	{
-		Direction += FVector2D(0.f, GRAVITY * -DeltaSeconds);
-		FVector OldWorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
-		Position += (Direction * 1500.f * DeltaSeconds); // TODO: Replace 1500 with windup force
-		FVector WorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
 		if (HasAuthority())
 		{
+			Direction += FVector2D(0.f, GRAVITY * -DeltaSeconds);
+			FVector OldWorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
+			Position += (Direction * 1500.f * DeltaSeconds); // TODO: Replace 1500 with windup force
+			FVector WorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
 			FHitResult HitResult = FHitResult();
 			if (Trace(GetWorld(), this, OldWorldPosition, WorldPosition, HitResult, ECC_WorldDynamic))
 			{
@@ -107,6 +108,10 @@ void AProjectile::Tick(float DeltaSeconds)
 			{
 				SetActorLocation(WorldPosition, false, nullptr, ETeleportType::None);
 			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Snowball moving on Client"));
 		}
 	}
 }

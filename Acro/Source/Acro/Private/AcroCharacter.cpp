@@ -98,7 +98,7 @@ void AAcroCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	// Replicate to everyone
-	DOREPLIFETIME(AAcroCharacter, ProjectilePool);
+	//DOREPLIFETIME(AAcroCharacter, ProjectilePool);
 }
 
 void AAcroCharacter::SetupPlayerInputComponent(class UInputComponent *PlayerInputComponent)

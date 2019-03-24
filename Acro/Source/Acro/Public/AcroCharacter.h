@@ -92,7 +92,7 @@ private:
 	bool bThrow = false;
 	FVector DrawPosition;
 
-	UPROPERTY(Replicated)
+	//UPROPERTY(Replicated)
 	UProjectilePool* ProjectilePool;
 
 	TSubclassOf<AProjectile> ActorClass;
