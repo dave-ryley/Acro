@@ -2,6 +2,7 @@
 
 #include "AcroCharacter.h"
 #include "AcroGameMode.h"
+#include "AcroVsGameMode.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
@@ -14,7 +15,9 @@
 #include "GameCoordinateUtils.h"
 
 AAcroCharacter::AAcroCharacter() : bIsDrawing(false),
-								   bThrow(false)
+	bThrow(false),
+	bInMatch(false),
+	bBlockInput(false)
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
@@ -47,44 +50,49 @@ AAcroCharacter::AAcroCharacter() : bIsDrawing(false),
 	characterMovement->GroundFriction = 3.f;
 	characterMovement->MaxWalkSpeed = 600.f;
 	characterMovement->MaxFlySpeed = 600.f;
-
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character)
-	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
-
-	ProjectilePool = NewObject<UProjectilePool>();
-	ProjectilePool->SetupBP(TEXT("/Game/Blueprints/Snowball"), TEXT("/Game/FX/SnowballExplosion_P.SnowballExplosion_P"));
 }
 
 void AAcroCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	if (HasAuthority() && ProjectilePool != nullptr)
-	{
-		ProjectilePool->Initialize(GetWorld(), 4, 4);
-	}
-	else if (ProjectilePool == nullptr)
-	{
-		UE_LOG(LogTemp, Error, TEXT("ProjectilePool == nullptr. WTF Happened?"));
-	}
+	Health = 10;
+	bBlockInput = false;
+}
+
+void AAcroCharacter::StartMatch(FVector Position)
+{
+	SetActorLocation(Position);
+	bInMatch = true;
+	Health = 10;
 }
 
 void AAcroCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (bBlockInput) return;
 	if (bIsDrawing)
 	{
-		// if (AcroMesh != NULL && AcroMesh->HasMeshActor())
-		// {
-		// 	DrawingMesh();
-		// }
-		if (HasAuthority())
-		{
-			DrawingMesh();
-		}
+		if(IcePower > 0)
+			if (HasAuthority())
+			{
+				DrawingMesh();
+			}
+			else
+			{
+				UpdateDrawPosition();
+			}
 		else
 		{
-			UpdateDrawPosition();
+			DrawEnded();
 		}
+	}
+	else
+	{
+		IcePower = FMath::Clamp(IcePower + DeltaSeconds, 0.f, 1.f);
+	}
+	if (bThrow)
+	{
+		ThrowPower = FMath::Clamp(ThrowPower + DeltaSeconds, 0.f, 2.f);
 	}
 	FVector curLocation = GetActorLocation();
 	FVector distanceCheck = curLocation - FVector(0.f, 0.f, curLocation.Z);
@@ -96,9 +104,7 @@ void AAcroCharacter::Tick(float DeltaSeconds)
 void AAcroCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> &OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	// Replicate to everyone
-	//DOREPLIFETIME(AAcroCharacter, ProjectilePool);
+	DOREPLIFETIME(AAcroCharacter, Health);
 }
 
 void AAcroCharacter::SetupPlayerInputComponent(class UInputComponent *PlayerInputComponent)
@@ -116,10 +122,13 @@ void AAcroCharacter::SetupPlayerInputComponent(class UInputComponent *PlayerInpu
 
 	PlayerInputComponent->BindTouch(IE_Pressed, this, &AAcroCharacter::TouchStarted);
 	PlayerInputComponent->BindTouch(IE_Released, this, &AAcroCharacter::TouchStopped);
+
+	PlayerInputComponent->BindAction("Pause", IE_Pressed, this, &AAcroCharacter::PauseGame);
 }
 
 void AAcroCharacter::Move2DHorizontal(float Value)
 {
+	if (bBlockInput) return;
 	if (Value != 0.0f)
 	{
 		FVector curLocation = GetActorLocation();
@@ -131,14 +140,9 @@ void AAcroCharacter::Move2DHorizontal(float Value)
 
 void AAcroCharacter::ThrowWindup()
 {
-	if (HasAuthority())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Server Throw Windup"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Client Throw Windup"));
-	}
+	if (bBlockInput) return;
+	bThrow = true;
+	ThrowPower = 0.5f;
 }
 
 void AAcroCharacter::Throw()
@@ -146,7 +150,7 @@ void AAcroCharacter::Throw()
 	float MouseX;
 	float MouseY;
 	AAcroPlayerController *PlayerController = Cast<AAcroPlayerController>(GetController());
-	if (PlayerController != nullptr)
+	if (!bBlockInput && PlayerController != nullptr)
 	{
 		FVector2D ActorScreenLocation;
 		FVector ActorLocation = GetActorLocation();
@@ -157,6 +161,7 @@ void AAcroCharacter::Throw()
 		PlayerController->GetMousePosition(MouseX, MouseY);
 		FVector2D Direction = ActorScreenLocation - FVector2D(MouseX, MouseY);
 		Direction.Normalize();
+		Direction *= ThrowPower;
 
 		if (HasAuthority())
 		{
@@ -167,6 +172,8 @@ void AAcroCharacter::Throw()
 			ClientThrow(ActorGameLocation, Direction);
 		}
 	}
+	bThrow = false;
+	ThrowPower = 0.f;
 }
 
 void AAcroCharacter::ClientThrow_Implementation(FVector2D Position, FVector2D Direction)
@@ -176,14 +183,8 @@ void AAcroCharacter::ClientThrow_Implementation(FVector2D Position, FVector2D Di
 
 void AAcroCharacter::ServerThrow(FVector2D Position, FVector2D Direction)
 {
-	TArray<UStaticMeshComponent *> Components;
-	if (ProjectilePool == nullptr)
-	{
-		UE_LOG(LogTemp, Error, TEXT("ProjectilePool == nullptr. WTF Happened?"));
-		return;
-	}
-	AProjectile *Projectile = ProjectilePool->Acquire(GetWorld());
-	Projectile->Spawn(Position, Direction);
+	AAcroGameMode* GameMode = Cast<AAcroGameMode>(GetWorld()->GetAuthGameMode());
+	GameMode->ThrowProjectile(Position, Direction);
 }
 
 void AAcroCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVector Location)
@@ -194,6 +195,32 @@ void AAcroCharacter::TouchStarted(const ETouchIndex::Type FingerIndex, const FVe
 void AAcroCharacter::TouchStopped(const ETouchIndex::Type FingerIndex, const FVector Location)
 {
 	StopJumping();
+}
+
+void AAcroCharacter::Jump()
+{
+	if (bBlockInput) return;
+	bPressedJump = true;
+	JumpKeyHoldTime = 0.0f;
+}
+
+void AAcroCharacter::StopJumping()
+{
+	if (bBlockInput) return;
+	bPressedJump = false;
+	ResetJumpState();
+}
+
+void AAcroCharacter::PauseGame_Implementation()
+{
+	AAcroGameMode* GameMode = Cast<AAcroGameMode>(GetWorld()->GetAuthGameMode());
+	GameMode->PauseGame(true);
+}
+
+void AAcroCharacter::UnpauseGame_Implementation()
+{
+	AAcroGameMode* GameMode = Cast<AAcroGameMode>(GetWorld()->GetAuthGameMode());
+	GameMode->PauseGame(false);
 }
 
 void AAcroCharacter::UpdateDrawPosition()
@@ -207,6 +234,11 @@ void AAcroCharacter::UpdateDrawPosition()
 		FVector v = GameCoordinateUtils::ScreenToWorldCoordinates(PlayerController, FVector2D(MouseX, MouseY));
 		if (v != FVector::ZeroVector)
 		{
+			if (bInMatch)
+			{
+				IcePower -= (v - DrawPosition).Size()/750.f;
+				IcePower = FMath::Clamp(IcePower, 0.f, 1.f);
+			}
 			DrawPosition = v;
 			if (!HasAuthority())
 			{
@@ -218,9 +250,11 @@ void AAcroCharacter::UpdateDrawPosition()
 
 void AAcroCharacter::DrawStarted()
 {
-	UE_LOG(LogTemp, Warning, TEXT("BeginGeneratingMesh"));
+	if (bBlockInput) return;
 	bIsDrawing = true;
+	float temp = IcePower;
 	UpdateDrawPosition();
+	IcePower = temp;
 	if (!HasAuthority())
 	{
 		SetClientBeginDraw(DrawPosition);
@@ -252,14 +286,17 @@ void AAcroCharacter::DrawingMesh()
 
 void AAcroCharacter::DrawEnded()
 {
-	bIsDrawing = false;
-	if (HasAuthority())
+	if (bIsDrawing)
 	{
-		SetServerEndDraw();
-	}
-	else
-	{
-		SetClientEndDraw();
+		bIsDrawing = false;
+		if (HasAuthority())
+		{
+			SetServerEndDraw();
+		}
+		else
+		{
+			SetClientEndDraw();
+		}
 	}
 }
 
@@ -278,5 +315,31 @@ void AAcroCharacter::SetServerEndDraw()
 
 void AAcroCharacter::Hit(FVector Direction)
 {
-	UE_LOG(LogTemp, Warning, TEXT("TODO: Remove Health From Character. Apply Direction Force. Camera Shake."));
+	UE_LOG(LogTemp, Warning, TEXT("TODO: Camera Shake."));
+	GetCharacterMovement()->AddImpulse(Direction * 10000);
+	if (bInMatch)
+	{
+		Health--;
+		if (Health <= 0)
+		{
+			AAcroVsGameMode* GameMode = Cast<AAcroVsGameMode>(GetWorld()->GetAuthGameMode());
+			GameMode->LoseGame(this);
+		}
+	}
+}
+
+void AAcroCharacter::WinGame_Implementation()
+{
+	bBlockInput = true;
+	DrawEnded();
+	OnGameWin.Broadcast();
+	UE_LOG(LogTemp, Warning, TEXT("TODO: Show Win Screen."));
+}
+
+void AAcroCharacter::LoseGame_Implementation()
+{
+	bBlockInput = true;
+	DrawEnded();
+	OnGameLose.Broadcast();
+	UE_LOG(LogTemp, Warning, TEXT("TODO: Show Lose Screen."));
 }

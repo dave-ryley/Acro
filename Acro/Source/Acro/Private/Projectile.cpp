@@ -62,11 +62,11 @@ AProjectile::~AProjectile()
 {
 }
 
-void AProjectile::Spawn(FVector2D GamePosition, FVector2D DirectionVector)
+void AProjectile::Spawn_Implementation(FVector2D GamePosition, FVector2D DirectionVector)
 {
 	active = true;
 	Direction = DirectionVector;
-	Position = GamePosition + (DirectionVector * 100.f);
+	Position = GamePosition + (DirectionVector * 100.f/DirectionVector.Size());
 	FVector WorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
 	SetActorLocation(WorldPosition, false, nullptr, ETeleportType::TeleportPhysics);
 }
@@ -80,16 +80,17 @@ void AProjectile::Tick(float DeltaSeconds)
 {
 	if (active)
 	{
+		Direction += FVector2D(0.f, GRAVITY * -DeltaSeconds);
+		FVector OldWorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
+		Position += (Direction * 1500.f * DeltaSeconds); // TODO: Replace 1500 with windup force
+		FVector WorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
 		if (HasAuthority())
 		{
-			Direction += FVector2D(0.f, GRAVITY * -DeltaSeconds);
-			FVector OldWorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
-			Position += (Direction * 1500.f * DeltaSeconds); // TODO: Replace 1500 with windup force
-			FVector WorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
 			FHitResult HitResult = FHitResult();
 			if (Trace(GetWorld(), this, OldWorldPosition, WorldPosition, HitResult, ECC_WorldDynamic))
 			{
-				ProjectilePool->Explode(this);
+				Explode();
+				ProjectilePool->Release(this);
 				AActor* Actor = HitResult.GetActor();
 				AAcroMeshActor* MeshActor = Cast<AAcroMeshActor>(Actor);
 				if (MeshActor != nullptr)
@@ -98,7 +99,7 @@ void AProjectile::Tick(float DeltaSeconds)
 					return;
 				}
 				AAcroCharacter* Character = Cast<AAcroCharacter>(Actor);
-				if(Character != nullptr)
+				if (Character != nullptr)
 				{
 					Character->Hit(WorldPosition - OldWorldPosition);
 					return;
@@ -111,7 +112,20 @@ void AProjectile::Tick(float DeltaSeconds)
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Snowball moving on Client"));
+			SetActorLocation(WorldPosition, false, nullptr, ETeleportType::None);
 		}
+	}
+}
+
+void AProjectile::Explode_Implementation()
+{
+	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ParticleInstance, GetActorLocation());
+	if (HasAuthority())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Exploding on Server"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Exploding on Client"));
 	}
 }
