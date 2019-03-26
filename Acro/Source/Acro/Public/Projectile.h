@@ -15,8 +15,18 @@ public:
 	AProjectile();
 	~AProjectile();
 
-	void Spawn(FVector2D GamePosition, FVector2D DirectionVector);
 	void Setup(UProjectilePool* Pool);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Spawn(FVector2D GamePosition, FVector2D DirectionVector);
+	void Spawn_Implementation(FVector2D GamePosition, FVector2D DirectionVector);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Explode();
+	void Explode_Implementation();
+
+	UPROPERTY(EditAnywhere)
+	UParticleSystem* ParticleInstance;
 
 private:
 	bool active = false;
@@ -26,4 +36,3 @@ private:
 
 	void Tick(float DeltaSeconds);
 };
-

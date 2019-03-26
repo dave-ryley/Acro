@@ -8,10 +8,19 @@
 #include "ProjectilePool.h"
 #include "AcroCharacter.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGameWin);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGameLose);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnMatchStarted);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGamePaused);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnGameUnPaused);
+
 UCLASS()
 class ACRO_API AAcroCharacter : public ACharacter
 {
 	GENERATED_BODY()
+
+public:
+	AAcroCharacter();
 
 	/** Side view camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -21,9 +30,25 @@ class ACRO_API AAcroCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class USpringArmComponent* CameraBoom;
 
-public:
-	AAcroCharacter();
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Gameplay, Replicated)
+	int Health = 10;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Gameplay)
+	float ThrowPower = 0.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Gameplay)
+	float IcePower = 1.f;
+
+	UPROPERTY(BlueprintAssignable, Category = Gameplay)
+	FOnGameWin OnGameWin;
+
+	UPROPERTY(BlueprintAssignable, Category = Gameplay)
+	FOnGameLose OnGameLose;
+
+	UPROPERTY(BlueprintAssignable, Category = Gameplay)
+	FOnMatchStarted OnMatchStarted;
+
+	void StartMatch(FVector Position);
 	void BeginPlay() override;
 
 	virtual void Tick(float DeltaSeconds) override;
@@ -34,6 +59,28 @@ public:
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 
 	void Hit(FVector Direction);
+
+	UFUNCTION(Client, Reliable)
+	void WinGame();
+	void WinGame_Implementation();
+
+	UFUNCTION(Client, Reliable)
+	void LoseGame();
+	void LoseGame_Implementation();
+
+	UPROPERTY(BlueprintAssignable, Category = Gameplay)
+	FOnGamePaused GamePausedEvent;
+
+	UFUNCTION(Client, Reliable)
+	void OnPauseGame();
+	void OnPauseGame_Implementation() { GamePausedEvent.Broadcast(); }
+
+	UPROPERTY(BlueprintAssignable, Category = Gameplay)
+	FOnGameUnPaused GameUnpausedEvent;
+
+	UFUNCTION(Client, Reliable)
+	void OnUnpauseGame();
+	void OnUnpauseGame_Implementation() { GameUnpausedEvent.Broadcast(); }
 
 protected:
 
@@ -68,7 +115,7 @@ protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void SetClientBeginDraw(FVector Position);
 	void SetClientBeginDraw_Implementation(FVector Position);
-	bool SetClientBeginDraw_Validate(FVector Position) { return true;  }
+	bool SetClientBeginDraw_Validate(FVector Position) { return true; }
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void SetClientEndDraw();
@@ -83,17 +130,26 @@ protected:
 	void ClientThrow_Implementation(FVector2D Position, FVector2D Direction);
 	bool ClientThrow_Validate(FVector2D Position, FVector2D Direction) { return true; }
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void PauseGame();
+	void PauseGame_Implementation();
+	bool PauseGame_Validate() { return true; }
+
+	UFUNCTION(BlueprintCallable, Category = "Gameplay", Server, Reliable, WithValidation)
+	void UnpauseGame();
+	void UnpauseGame_Implementation();
+	bool UnpauseGame_Validate() { return true; }
+
 	void ServerThrow(FVector2D Position, FVector2D Direction);
+
+	void Jump();
+	void StopJumping();
 
 private:
 	UAcroMesh* AcroMesh;
-
 	bool bIsDrawing = false;
 	bool bThrow = false;
+	bool bInMatch = false;
+	bool bBlockInput = false;
 	FVector DrawPosition;
-
-	UPROPERTY(Replicated)
-	UProjectilePool* ProjectilePool;
-
-	TSubclassOf<AProjectile> ActorClass;
 };

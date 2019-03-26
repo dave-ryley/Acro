@@ -49,6 +49,7 @@ AProjectile::AProjectile()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	SetActorTickEnabled(true);
+	bReplicates = false;
 
 	USphereComponent* Sphere = CreateDefaultSubobject<USphereComponent>(FName("SphereComponent"));
 	Sphere->SetWorldScale3D(FVector(1.f, 1.0f, 1.0f));
@@ -61,11 +62,11 @@ AProjectile::~AProjectile()
 {
 }
 
-void AProjectile::Spawn(FVector2D GamePosition, FVector2D DirectionVector)
+void AProjectile::Spawn_Implementation(FVector2D GamePosition, FVector2D DirectionVector)
 {
 	active = true;
 	Direction = DirectionVector;
-	Position = GamePosition + (DirectionVector * 100.f);
+	Position = GamePosition + (DirectionVector * 100.f/DirectionVector.Size());
 	FVector WorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
 	SetActorLocation(WorldPosition, false, nullptr, ETeleportType::TeleportPhysics);
 }
@@ -88,7 +89,8 @@ void AProjectile::Tick(float DeltaSeconds)
 			FHitResult HitResult = FHitResult();
 			if (Trace(GetWorld(), this, OldWorldPosition, WorldPosition, HitResult, ECC_WorldDynamic))
 			{
-				ProjectilePool->Explode(this);
+				Explode();
+				ProjectilePool->Release(this);
 				AActor* Actor = HitResult.GetActor();
 				AAcroMeshActor* MeshActor = Cast<AAcroMeshActor>(Actor);
 				if (MeshActor != nullptr)
@@ -97,7 +99,7 @@ void AProjectile::Tick(float DeltaSeconds)
 					return;
 				}
 				AAcroCharacter* Character = Cast<AAcroCharacter>(Actor);
-				if(Character != nullptr)
+				if (Character != nullptr)
 				{
 					Character->Hit(WorldPosition - OldWorldPosition);
 					return;
@@ -108,5 +110,22 @@ void AProjectile::Tick(float DeltaSeconds)
 				SetActorLocation(WorldPosition, false, nullptr, ETeleportType::None);
 			}
 		}
+		else
+		{
+			SetActorLocation(WorldPosition, false, nullptr, ETeleportType::None);
+		}
+	}
+}
+
+void AProjectile::Explode_Implementation()
+{
+	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ParticleInstance, GetActorLocation());
+	if (HasAuthority())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Exploding on Server"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Exploding on Client"));
 	}
 }
