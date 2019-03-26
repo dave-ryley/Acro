@@ -64,6 +64,7 @@ void AAcroCharacter::StartMatch(FVector Position)
 	SetActorLocation(Position);
 	bInMatch = true;
 	Health = 10;
+	OnMatchStarted.Broadcast();
 }
 
 void AAcroCharacter::Tick(float DeltaSeconds)
