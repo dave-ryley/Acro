@@ -55,16 +55,24 @@ AAcroCharacter::AAcroCharacter() : bIsDrawing(false),
 void AAcroCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	Health = 10;
+	Health = 150.f;
 	bBlockInput = false;
 }
 
-void AAcroCharacter::StartMatch(FVector Position)
+void AAcroCharacter::StartMatch_Implementation(FVector Position)
 {
 	SetActorLocation(Position);
 	bInMatch = true;
-	Health = 10;
+	bBlockInput = true;
+	Health = 150.f;
 	OnMatchStarted.Broadcast();
+	UE_LOG(LogTemp, Warning, TEXT("StartMatch."));
+}
+
+void AAcroCharacter::CountdownComplete()
+{
+	Health = 150.f;
+	bBlockInput = false;
 }
 
 void AAcroCharacter::Tick(float DeltaSeconds)
@@ -89,11 +97,11 @@ void AAcroCharacter::Tick(float DeltaSeconds)
 	}
 	else
 	{
-		IcePower = FMath::Clamp(IcePower + DeltaSeconds, 0.f, 1.f);
+		IcePower = FMath::Clamp(IcePower + DeltaSeconds/2.f, 0.f, 1.f);
 	}
 	if (bThrow)
 	{
-		ThrowPower = FMath::Clamp(ThrowPower + DeltaSeconds, 0.f, 2.f);
+		ThrowPower = FMath::Clamp(ThrowPower + DeltaSeconds*2.f, 0.f, 2.f);
 	}
 	FVector curLocation = GetActorLocation();
 	FVector distanceCheck = curLocation - FVector(0.f, 0.f, curLocation.Z);
@@ -214,13 +222,16 @@ void AAcroCharacter::StopJumping()
 
 void AAcroCharacter::PauseGame_Implementation()
 {
+	if (bBlockInput) return;
 	AAcroGameMode* GameMode = Cast<AAcroGameMode>(GetWorld()->GetAuthGameMode());
+	bBlockInput = true;
 	GameMode->PauseGame(true);
 }
 
 void AAcroCharacter::UnpauseGame_Implementation()
 {
 	AAcroGameMode* GameMode = Cast<AAcroGameMode>(GetWorld()->GetAuthGameMode());
+	bBlockInput = false;
 	GameMode->PauseGame(false);
 }
 
@@ -316,11 +327,12 @@ void AAcroCharacter::SetServerEndDraw()
 
 void AAcroCharacter::Hit(FVector Direction)
 {
+	float Damage = Direction.Size();
 	UE_LOG(LogTemp, Warning, TEXT("TODO: Camera Shake."));
 	GetCharacterMovement()->AddImpulse(Direction * 10000);
 	if (bInMatch)
 	{
-		Health--;
+		Health -= Damage;
 		if (Health <= 0)
 		{
 			AAcroVsGameMode* GameMode = Cast<AAcroVsGameMode>(GetWorld()->GetAuthGameMode());
@@ -334,7 +346,6 @@ void AAcroCharacter::WinGame_Implementation()
 	bBlockInput = true;
 	DrawEnded();
 	OnGameWin.Broadcast();
-	UE_LOG(LogTemp, Warning, TEXT("TODO: Show Win Screen."));
 }
 
 void AAcroCharacter::LoseGame_Implementation()
@@ -342,5 +353,4 @@ void AAcroCharacter::LoseGame_Implementation()
 	bBlockInput = true;
 	DrawEnded();
 	OnGameLose.Broadcast();
-	UE_LOG(LogTemp, Warning, TEXT("TODO: Show Lose Screen."));
 }
