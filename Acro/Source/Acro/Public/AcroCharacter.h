@@ -31,7 +31,7 @@ public:
 	class USpringArmComponent* CameraBoom;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Gameplay, Replicated)
-	int Health = 10;
+	float Health = 150.f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Gameplay)
 	float ThrowPower = 0.0f;
@@ -48,9 +48,14 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = Gameplay)
 	FOnMatchStarted OnMatchStarted;
 
-	void StartMatch(FVector Position);
-	void BeginPlay() override;
+	UFUNCTION(BlueprintCallable, Category = Gameplay)
+	void CountdownComplete();
 
+	UFUNCTION(Client, Reliable)
+	void StartMatch(FVector Position);
+	void StartMatch_Implementation(FVector Position);
+
+	void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 
 	/** Returns SideViewCameraComponent subobject **/
