@@ -69,6 +69,7 @@ void AProjectile::Spawn_Implementation(FVector2D GamePosition, FVector2D Directi
 	Position = GamePosition + (DirectionVector * 100.f/DirectionVector.Size());
 	FVector WorldPosition = GameCoordinateUtils::GameToWorldCoordinates(Position);
 	SetActorLocation(WorldPosition, false, nullptr, ETeleportType::TeleportPhysics);
+	UGameplayStatics::PlaySoundAtLocation((UObject*)this, LaunchSound, WorldPosition);
 }
 
 void AProjectile::Setup(UProjectilePool* Pool)
@@ -120,6 +121,7 @@ void AProjectile::Tick(float DeltaSeconds)
 void AProjectile::Explode_Implementation()
 {
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ParticleInstance, GetActorLocation());
+	UGameplayStatics::PlaySoundAtLocation((UObject*)this, ImpactSound, GetActorLocation());
 	if (HasAuthority())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Exploding on Server"));

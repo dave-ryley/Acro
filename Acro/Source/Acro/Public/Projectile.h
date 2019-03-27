@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Sound/SoundCue.h"
 #include "Projectile.generated.h"
 
 class UProjectilePool;
@@ -27,6 +28,12 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	UParticleSystem* ParticleInstance;
+
+	UPROPERTY(EditAnywhere)
+	USoundCue* ImpactSound;
+
+	UPROPERTY(EditAnywhere)
+	USoundCue* LaunchSound;
 
 private:
 	bool active = false;
