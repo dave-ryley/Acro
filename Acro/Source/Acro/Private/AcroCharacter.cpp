@@ -321,7 +321,10 @@ void AAcroCharacter::SetClientEndDraw_Implementation()
 void AAcroCharacter::SetServerEndDraw()
 {
     AAcroGameMode* GameMode = Cast<AAcroGameMode>(GetWorld()->GetAuthGameMode());
-	GameMode->SaveMesh(AcroMesh);
+	if (AcroMesh->EndGeneratingMesh())
+	{
+		GameMode->SaveMesh(AcroMesh);
+	}
 	AcroMesh = nullptr;
 }
 
