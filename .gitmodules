@@ -1,3 +1,6 @@
 [submodule "Acro/Plugins/RuntimeMeshComponent"]
 	path = Acro/Plugins/RuntimeMeshComponent
 	url = https://github.com/dwarfplumber/RuntimeMeshComponent.git
+[submodule "Acro/Plugins/GorbComponent"]
+	path = Acro/Plugins/GorbComponent
+	url = https://github.com/david159ryan/GorbComponent.git
