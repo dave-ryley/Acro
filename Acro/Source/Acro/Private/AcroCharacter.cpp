@@ -46,10 +46,10 @@ AAcroCharacter::AAcroCharacter() : bIsDrawing(false),
 	characterMovement->RotationRate = FRotator(0.0f, 720.0f, 0.0f); // ...at this rotation rate
 	characterMovement->GravityScale = 2.f;
 	characterMovement->AirControl = 0.80f;
-	characterMovement->JumpZVelocity = 1000.f;
-	characterMovement->GroundFriction = 3.f;
-	characterMovement->MaxWalkSpeed = 600.f;
-	characterMovement->MaxFlySpeed = 600.f;
+	characterMovement->JumpZVelocity = 2000.f;
+	characterMovement->GroundFriction = 2.f;
+	characterMovement->MaxWalkSpeed = 1000.f;
+	characterMovement->MaxFlySpeed = 1100.f;
 }
 
 void AAcroCharacter::BeginPlay()
