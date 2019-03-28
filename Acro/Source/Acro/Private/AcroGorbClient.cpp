@@ -1,7 +1,10 @@
 // Copyright © 2018-2019 David Ryan. All rights reserved.
 
 #include "AcroGorbClient.h"
+#pragma warning ( push )
+#pragma warning(disable:4557)
 #include "GorbComponent/Private/CapnpBase.h"
+#pragma warning ( pop )
 
 const kj::StringPtr ADDRESS = "fypserver.david.ry";
 const uint16_t		PORT = 9926;
@@ -225,6 +228,7 @@ public:
 			auto uuid = retrieveMeshes[i].getUuid();
 			uint32_t numPoints = centerPoints.size();
 			mesh->CenterPositions.Reserve(numPoints);
+			mesh->UUID = UTF8_TO_TCHAR(uuid.cStr());
 			for (uint32_t j = 0; j < numPoints; j++)
 			{
 				mesh->CenterPositions.Add(FVector::ZeroVector);
