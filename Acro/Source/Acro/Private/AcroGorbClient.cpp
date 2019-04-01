@@ -6,7 +6,7 @@
 #include "GorbComponent/Private/CapnpBase.h"
 #pragma warning ( pop )
 
-const kj::StringPtr ADDRESS = "fypserver.david.ry";
+const kj::StringPtr ADDRESS = "192.168.220.2";
 const uint16_t		PORT = 9926;
 
 class ErrorHandlerImpl : public kj::TaskSet::ErrorHandler {
